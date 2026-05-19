@@ -135,6 +135,12 @@ export interface WebviewOpenAsTextMessage {
   type: 'openAsText';
 }
 
+/** Switch between Single and Multi view modes */
+export interface WebviewSetViewModeMessage {
+  type: 'setViewMode';
+  mode: 'single' | 'multi';
+}
+
 export type WebviewToHostMessage =
   | WebviewEditCellMessage
   | WebviewReplaceCellsMessage
@@ -146,4 +152,5 @@ export type WebviewToHostMessage =
   | WebviewCopyMessage
   | WebviewFindMessage
   | WebviewReplaceMatchesMessage
-  | WebviewOpenAsTextMessage;
+  | WebviewOpenAsTextMessage
+  | WebviewSetViewModeMessage;

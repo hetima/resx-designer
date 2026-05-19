@@ -164,6 +164,13 @@ const restoreState = () => {
 
 // ── Toolbar buttons ────────────────────────────────────────────────
 
+document.getElementById('viewModeBtn')?.addEventListener('click', () => {
+  const btn = document.getElementById('viewModeBtn');
+  const isSingle = btn?.textContent?.includes('Multi');
+  const mode = isSingle ? 'multi' : 'single';
+  vscode.postMessage({ type: 'setViewMode', mode });
+});
+
 document.getElementById('openAsTextBtn')?.addEventListener('click', () => {
   vscode.postMessage({ type: 'openAsText' });
 });
@@ -734,7 +741,14 @@ const navigateCell = (direction) => {
 
   // Wrap around for tab navigation
   if (direction === 'left' || direction === 'right') {
-    const maxCol = resxColumns.length - 1;
+    // Use the first data row to determine the actual visible column range
+    const firstRow = table.querySelector('tbody tr');
+    const allCells = firstRow ? firstRow.querySelectorAll('td') : [];
+    let maxCol = 0;
+    allCells.forEach(cell => {
+      const c = parseInt(cell.getAttribute('data-col'), 10);
+      if (!isNaN(c) && c > maxCol) maxCol = c;
+    });
     if (targetCol < 0) { targetRow--; targetCol = maxCol; }
     if (targetCol > maxCol) { targetRow++; targetCol = 0; }
   }

@@ -19,8 +19,10 @@ class ResxEditorController {
   private columns: ResxGridColumn[] = [];
   private gridRows: ResxGridRow[] = [];
   private isUpdating = false;
+  private lastWrittenUris = new Set<string>();
   private fileWatchers: vscode.FileSystemWatcher[] = [];
   private highlightMissing = true;
+  private viewMode: 'single' | 'multi' = 'single';
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -47,6 +49,12 @@ class ResxEditorController {
 
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
 
+    // Restore view mode from persisted global state
+    const persistedMode = this.context.globalState.get<string>('resx.viewMode');
+    if (persistedMode === 'single' || persistedMode === 'multi') {
+      this.viewMode = persistedMode;
+    }
+
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [vscode.Uri.file(path.join(this.context.extensionPath, 'media'))]
@@ -65,12 +73,7 @@ class ResxEditorController {
       ResxEditorProvider.currentActive = this;
     }
 
-    webviewPanel.onDidChangeViewState(e => {
-      if (e.webviewPanel.active) {
-        ResxEditorProvider.currentActive = this;
-      }
-      this.updateWebviewContent();
-    });
+
 
     // Handle messages from the webview
     webviewPanel.webview.onDidReceiveMessage(async (e: WebviewToHostMessage) => {
@@ -81,7 +84,8 @@ class ResxEditorController {
     const changeSub = vscode.workspace.onDidChangeTextDocument(ev => {
       if (
         ev.document.uri.toString() === document.uri.toString() &&
-        !this.isUpdating
+        !this.isUpdating &&
+        !this.lastWrittenUris.has(ev.document.uri.toString())
       ) {
         setTimeout(() => this.reloadAndRefresh(), 300);
       }
@@ -95,7 +99,12 @@ class ResxEditorController {
       this.currentWebviewPanel = undefined;
     });
 
-    webviewPanel.webview.postMessage({ type: 'focus' });
+    webviewPanel.onDidChangeViewState(e => {
+      if (e.webviewPanel.active) {
+        ResxEditorProvider.currentActive = this;
+      }
+      this.updateWebviewContent();
+    });
   }
 
   // ── Locale Set Loading ──────────────────────────────────────────
@@ -176,6 +185,37 @@ class ResxEditorController {
       }
       return row;
     });
+  }
+
+  /**
+   * Returns the columns that should be visible based on the current view mode.
+   * In 'single' mode, only Name, Comment, Default, and the current file's locale are shown.
+   * In 'multi' mode, all columns are returned.
+   * Each returned element includes `physicalIndex` — the index in `this.columns`.
+   */
+  private getVisibleColumns(): Array<ResxGridColumn & { physicalIndex: number }> {
+    const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
+
+    if (this.viewMode === 'multi') {
+      return this.columns.map((c, i) => ({ ...c, physicalIndex: i }));
+    }
+
+    // Single mode: index, name, comment, then default (if current is not default), then current locale
+    const visible: Array<ResxGridColumn & { physicalIndex: number }> = [];
+    for (let i = 0; i < this.columns.length; i++) {
+      const c = this.columns[i];
+      if (c.kind === 'index' || c.kind === 'name' || c.kind === 'comment') {
+        visible.push({ ...c, physicalIndex: i });
+      } else if (c.kind === 'locale') {
+        // Show default locale column and current file's locale column
+        if (c.locale === null) {
+          visible.push({ ...c, physicalIndex: i });
+        } else if (c.locale === currentLocale) {
+          visible.push({ ...c, physicalIndex: i });
+        }
+      }
+    }
+    return visible;
   }
 
   // ── File Watching ───────────────────────────────────────────────
@@ -284,6 +324,10 @@ class ResxEditorController {
           await this.openWithDefaultEditorAndClose(this.currentWebviewPanel);
         }
         break;
+      case 'setViewMode':
+        await this.handleSetViewMode(msg.mode);
+        break;
+
     }
   }
 
@@ -549,6 +593,24 @@ class ResxEditorController {
     });
   }
 
+  private async handleSetViewMode(mode: 'single' | 'multi'): Promise<void> {
+    if (mode === this.viewMode) { return; }
+
+    // Auto-save before switching to prevent data loss
+    try {
+      await this.document.save();
+    } catch {
+      // Ignore save errors (e.g. untitled or readonly files)
+    }
+
+    this.viewMode = mode;
+
+    // Persist view mode
+    this.context.globalState.update('resx.viewMode', mode);
+
+    this.updateWebviewContent();
+  }
+
   // ── File I/O ────────────────────────────────────────────────────
 
   private async openWithDefaultEditorAndClose(webviewPanel: vscode.WebviewPanel): Promise<void> {
@@ -567,7 +629,10 @@ class ResxEditorController {
   private async writeResxFile(doc: ResxDocument): Promise<void> {
     const xml = serializeResx(doc);
     const uri = vscode.Uri.file(doc.path);
+    this.lastWrittenUris.add(uri.toString());
     await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
+    // Clear after a short delay to allow onDidChangeTextDocument to see it
+    setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
   }
 
   private async reloadAndRefresh(): Promise<void> {
@@ -604,7 +669,7 @@ class ResxEditorController {
   // ── Webview Rendering ───────────────────────────────────────────
 
   private getMissingCellStyle(row: number, column: ResxGridColumn): string {
-    if (!this.highlightMissing || column.kind !== 'locale') { return ''; }
+    if (!this.highlightMissing || column.kind !== 'locale' || column.locale === null) { return ''; }
     const value = this.gridRows[row]?.values.get(column.locale) ?? '';
     const defaultValue = this.gridRows[row]?.values.get(null) ?? '';
     // "Missing" = value is empty, or value equals default value (untranslated)
@@ -685,10 +750,10 @@ class ResxEditorController {
       td.missing-translation { background-color: ${isDark ? '#3a2a2a' : '#fff3e0'} !important; }
       td.missing-translation.selected { background-color: ${isDark ? '#4a3a3a' : '#ffe0b2'} !important; }
       .locale-header { cursor: default; }
-      .name-col { min-width: 120px; width: 180px; max-width: 400px; }
-      .value-col { min-width: 120px; width: 180px; max-width: 400px; }
-      .index-col { min-width: 30px; max-width: 50px; color: #888; text-align: right; }
-      .comment-col { min-width: 100px; width: 150px; max-width: 300px; }
+      .name-col { min-width: 80px; width: 120px; max-width: 300px; }
+      .value-col { min-width: 80px; width: 120px; max-width: 300px; }
+      .index-col { min-width: 40px; max-width: 50px; color: #888; text-align: right; }
+      .comment-col { min-width: 80px; width: 120px; max-width: 300px; }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
         background: #171717; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px;
@@ -733,6 +798,7 @@ class ResxEditorController {
   </head>
   <body>
     <div id="toolbar">
+      <button id="viewModeBtn" title="${this.viewMode === 'single' ? 'Show all locale columns' : 'Show single file columns'}">${this.viewMode === 'single' ? 'Multi View' : 'Single View'}</button>
       <button id="openAsTextBtn" title="Open this file in the default text editor">Open as Text</button>
     </div>
     <div id="csv-root" class="table-container"
@@ -795,26 +861,26 @@ class ResxEditorController {
   }
 
   private generateTableHtml(isDark: boolean, addSerialIndex: boolean): string {
+    const visibleColumns = this.getVisibleColumns();
     let html = '<table>';
 
     // Header row
     html += '<thead><tr>';
-    let colIdx = 0;
-    if (addSerialIndex) {
-      html += `<th class="index-col" data-col="${colIdx}">#</th>`;
-      colIdx++;
-    } else {
-      // Still occupy col 0 even if hidden — we just skip serial index in columns
-      html += `<th class="index-col" style="display:none;" data-col="${colIdx}"></th>`;
-      colIdx++;
-    }
-    html += `<th class="name-col" data-col="${colIdx}">Name</th>`;
-    colIdx++;
-    html += `<th class="comment-col" data-col="${colIdx}">Comment</th>`;
-    colIdx++;
-    for (let i = 3; i < this.columns.length; i++) {
-      const c = this.columns[i];
-      html += `<th class="locale-header value-col" data-col="${i}">${this.escapeHtml(c.label)}</th>`;
+    for (const vc of visibleColumns) {
+      const physIdx = vc.physicalIndex;
+      if (vc.kind === 'index') {
+        if (addSerialIndex) {
+          html += `<th class="index-col" data-col="${physIdx}">#</th>`;
+        } else {
+          html += `<th class="index-col" style="display:none;" data-col="${physIdx}"></th>`;
+        }
+      } else if (vc.kind === 'name') {
+        html += `<th class="name-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
+      } else if (vc.kind === 'comment') {
+        html += `<th class="comment-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
+      } else if (vc.kind === 'locale') {
+        html += `<th class="locale-header value-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
+      }
     }
     html += '</tr></thead>';
 
@@ -824,31 +890,26 @@ class ResxEditorController {
       const row = this.gridRows[r];
       html += '<tr>';
 
-      let c = 0;
-      // Serial index
-      if (addSerialIndex) {
-        html += `<td class="index-col" data-row="${r}" data-col="${c}">${r + 1}</td>`;
-      } else {
-        html += `<td class="index-col" style="display:none;" data-row="${r}" data-col="${c}"></td>`;
-      }
-      c++;
-      // Name
-      const nameSafe = this.escapeHtml(row.name);
-      html += `<td class="name-col" data-row="${r}" data-col="${c}">${nameSafe}</td>`;
-      c++;
-      // Comment
-      const commentSafe = this.escapeHtml(row.comment);
-      html += `<td class="comment-col" data-row="${r}" data-col="${c}">${commentSafe}</td>`;
-      c++;
-      // Locale values
-      for (let i = 3; i < this.columns.length; i++) {
-        const col = this.columns[i];
-        const value = row.values.get(col.locale) ?? '';
-        const valueSafe = this.escapeHtml(value);
-        const missingClass = this.getMissingCellStyle(r, col);
-        const titleAttr = (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0)
-          ? ` title="${this.escapeHtml(value)}"` : '';
-        html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${i}"${titleAttr}>${valueSafe}</td>`;
+      for (const vc of visibleColumns) {
+        const physIdx = vc.physicalIndex;
+        if (vc.kind === 'index') {
+          if (addSerialIndex) {
+            html += `<td class="index-col" data-row="${r}" data-col="${physIdx}">${r + 1}</td>`;
+          } else {
+            html += `<td class="index-col" style="display:none;" data-row="${r}" data-col="${physIdx}"></td>`;
+          }
+        } else if (vc.kind === 'name') {
+          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.name)}</td>`;
+        } else if (vc.kind === 'comment') {
+          html += `<td class="comment-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.comment)}</td>`;
+        } else if (vc.kind === 'locale') {
+          const value = row.values.get(vc.locale) ?? '';
+          const valueSafe = this.escapeHtml(value);
+          const missingClass = this.getMissingCellStyle(r, vc);
+          const titleAttr = (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0)
+            ? ` title="${this.escapeHtml(value)}"` : '';
+          html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${physIdx}"${titleAttr}>${valueSafe}</td>`;
+        }
       }
 
       html += '</tr>';
@@ -856,15 +917,21 @@ class ResxEditorController {
 
     // Virtual empty row for quick append
     const vRow = this.gridRows.length;
-    if (addSerialIndex) {
-      html += `<td class="index-col" data-row="${vRow}" data-col="0">${this.gridRows.length + 1}</td>`;
-    } else {
-      html += `<td style="display:none;" data-row="${vRow}" data-col="0"></td>`;
-    }
-    html += `<td class="name-col" data-row="${vRow}" data-col="1"></td>`;
-    html += `<td class="comment-col" data-row="${vRow}" data-col="2"></td>`;
-    for (let i = 3; i < this.columns.length; i++) {
-      html += `<td class="value-col" data-row="${vRow}" data-col="${i}"></td>`;
+    for (const vc of visibleColumns) {
+      const physIdx = vc.physicalIndex;
+      if (vc.kind === 'index') {
+        if (addSerialIndex) {
+          html += `<td class="index-col" data-row="${vRow}" data-col="${physIdx}">${this.gridRows.length + 1}</td>`;
+        } else {
+          html += `<td style="display:none;" data-row="${vRow}" data-col="${physIdx}"></td>`;
+        }
+      } else if (vc.kind === 'name') {
+        html += `<td class="name-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
+      } else if (vc.kind === 'comment') {
+        html += `<td class="comment-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
+      } else if (vc.kind === 'locale') {
+        html += `<td class="value-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
+      }
     }
     html += '</tr>';
 
