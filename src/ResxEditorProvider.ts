@@ -21,7 +21,6 @@ class ResxEditorController {
   private isUpdating = false;
   private fileWatchers: vscode.FileSystemWatcher[] = [];
   private highlightMissing = true;
-  private clickableLinks = true;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -41,7 +40,6 @@ class ResxEditorController {
     }
 
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
-    this.clickableLinks = config.get<boolean>('clickableLinks', true);
 
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -270,9 +268,6 @@ class ResxEditorController {
         break;
       case 'findMatches':
         await this.handleFindMatches(msg.requestId, msg.query, msg.options);
-        break;
-      case 'openLink':
-        await this.handleOpenLink(msg.url);
         break;
       case 'replaceMatches':
         await this.handleReplaceMatches(msg.requestId, msg.replacements);
@@ -542,19 +537,6 @@ class ResxEditorController {
     });
   }
 
-  private async handleOpenLink(url: string): Promise<void> {
-    if (!url.trim()) { return; }
-    try {
-      const parsed = new URL(url);
-      const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
-      if (['http', 'https', 'ftp', 'mailto'].includes(scheme)) {
-        await vscode.env.openExternal(vscode.Uri.parse(url));
-      }
-    } catch {
-      // ignore invalid URLs
-    }
-  }
-
   // ── File I/O ────────────────────────────────────────────────────
 
   private async openWithDefaultEditorAndClose(webviewPanel: vscode.WebviewPanel): Promise<void> {
@@ -632,23 +614,6 @@ class ResxEditorController {
     })[m] as string);
   }
 
-  private linkifyUrls(escapedText: string): string {
-    const urlPattern = /\b(?:(?:https?:\/\/|ftp:\/\/|mailto:)[^\s<>&"']+(?:&amp;[^\s<>&"']+)*|www\.[^\s<>&"']+\.[^\s<>&"']+)/gi;
-    return escapedText.replace(urlPattern, (rawMatch) => {
-      let matched = rawMatch;
-      let trailing = '';
-      const trailingMatch = matched.match(/[.,!?;:)\]]+$/);
-      if (trailingMatch) {
-        trailing = trailingMatch[0];
-        matched = matched.slice(0, -trailing.length);
-      }
-      if (!matched) { return rawMatch; }
-      let href = matched.replace(/&amp;/g, '&');
-      if (/^www\./i.test(href)) { href = `https://${href}`; }
-      return `<span class="csv-link" data-href="${this.escapeHtml(href)}" title="Ctrl/Cmd+click to open">${matched}</span>${trailing}`;
-    });
-  }
-
   private updateWebviewContent(): void {
     if (!this.currentWebviewPanel || !this.localeSet) { return; }
 
@@ -662,7 +627,6 @@ class ResxEditorController {
     const fontSize = (typeof csvFontSize === 'number' && csvFontSize > 0) ? csvFontSize : (editorFontSize || 14);
     const cellPadding = config.get<number>('cellPadding', 4);
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
-    this.clickableLinks = config.get<boolean>('clickableLinks', true);
     const mouseWheelZoomEnabled = config.get<boolean>('mouseWheelZoom', true);
     const mouseWheelZoomInvert = config.get<boolean>('mouseWheelZoomInvert', false);
     const addSerialIndex = config.get<boolean>('showSerialIndex', true);
@@ -850,7 +814,7 @@ class ResxEditorController {
       }
       c++;
       // Name
-      const nameSafe = this.clickableLinks ? this.linkifyUrls(this.escapeHtml(row.name)) : this.escapeHtml(row.name);
+      const nameSafe = this.escapeHtml(row.name);
       html += `<td class="name-col" data-row="${r}" data-col="${c}">${nameSafe}</td>`;
       c++;
       // Comment
@@ -861,7 +825,7 @@ class ResxEditorController {
       for (let i = 3; i < this.columns.length; i++) {
         const col = this.columns[i];
         const value = row.values.get(col.locale) ?? '';
-        const valueSafe = this.clickableLinks ? this.linkifyUrls(this.escapeHtml(value)) : this.escapeHtml(value);
+        const valueSafe = this.escapeHtml(value);
         const missingClass = this.getMissingCellStyle(r, col);
         const titleAttr = (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0)
           ? ` title="${this.escapeHtml(value)}"` : '';

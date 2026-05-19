@@ -20,9 +20,6 @@
   "activationEvents": [
     "onLanguage:resx",
     "onCommand:resx.toggleExtension",
-    "onCommand:resx.toggleSerialIndex",
-    "onCommand:resx.toggleClickableLinks",
-    "onCommand:resx.toggleMissingHighlight",
     "onCommand:resx.changeFontFamily",
     "onCommand:resx.addLocale",
     "onCommand:resx.refreshLocales",
@@ -42,18 +39,6 @@
       {
         "command": "resx.toggleExtension",
         "title": "RESX: Toggle Extension On/Off"
-      },
-      {
-        "command": "resx.toggleSerialIndex",
-        "title": "RESX: Toggle Serial Index Column"
-      },
-      {
-        "command": "resx.toggleClickableLinks",
-        "title": "RESX: Toggle Clickable Links"
-      },
-      {
-        "command": "resx.toggleMissingHighlight",
-        "title": "RESX: Toggle Missing Translation Highlight"
       },
       {
         "command": "resx.changeFontFamily",
@@ -110,11 +95,6 @@
           "type": "number",
           "default": 4,
           "description": "Vertical padding in pixels for table cells."
-        },
-        "resx.clickableLinks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Make URLs in cells clickable. Ctrl/Cmd+click to open links."
         },
         "resx.highlightMissingTranslations": {
           "type": "boolean",

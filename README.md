@@ -41,9 +41,6 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 | Command | Description |
 |---|---|
 | `RESX: Toggle Extension On/Off` | Enable or disable the custom editor |
-| `RESX: Toggle Serial Index Column` | Show/hide the `#` column |
-| `RESX: Toggle Clickable Links` | Make URLs in cells Ctrl+clickable |
-| `RESX: Toggle Missing Translation Highlight` | Toggle untranslated cell highlighting |
 | `RESX: Change Font Family` | Override the editor font |
 | `RESX: Add New Locale` | Create a new `.resx` locale file |
 | `RESX: Refresh Locale Files` | Re-scan the folder for locale files |
@@ -61,7 +58,6 @@ All settings are scoped to the `resx.*` prefix.
 | `resx.mouseWheelZoom` | `boolean` | `true` | Enable Ctrl/Cmd + scroll zoom |
 | `resx.mouseWheelZoomInvert` | `boolean` | `false` | Invert zoom direction |
 | `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
-| `resx.clickableLinks` | `boolean` | `true` | Ctrl/Cmd+click to open URLs |
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.showSerialIndex` | `boolean` | `true` | Show `#` column |
 | `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |

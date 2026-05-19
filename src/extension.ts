@@ -22,9 +22,6 @@ export function activate(context: vscode.ExtensionContext) {
     'resx.fontFamily',
     'resx.fontSize',
     'resx.cellPadding',
-    'resx.clickableLinks',
-    'resx.highlightMissingTranslations',
-    'resx.showSerialIndex',
     'resx.mouseWheelZoom',
     'resx.mouseWheelZoomInvert',
   ];

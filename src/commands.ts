@@ -22,34 +22,6 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       toggleBooleanConfig('enabled', true, 'RESX extension')
     ),
 
-    // Toggle clickable links
-    vscode.commands.registerCommand('resx.toggleClickableLinks', () =>
-      toggleBooleanConfig('clickableLinks', true, 'RESX clickable links')
-    ),
-
-    // Toggle serial index column
-    vscode.commands.registerCommand('resx.toggleSerialIndex', async () => {
-      const active = ResxEditorProvider.getActiveProvider();
-      if (!active) {
-        vscode.window.showInformationMessage('Open a .resx file in the RESX editor.');
-        return;
-      }
-      const uri = active.getDocumentUri();
-      const cur = ResxEditorProvider.getSerialIndexForUri(context, uri);
-      await ResxEditorProvider.setSerialIndexForUri(context, uri, !cur);
-      ResxEditorProvider.editors
-        .filter(ed => ed.getDocumentUri().toString() === uri.toString())
-        .forEach(ed => ed.refresh());
-      vscode.window.showInformationMessage(
-        `RESX: Serial index ${!cur ? 'enabled' : 'disabled'} for this file.`
-      );
-    }),
-
-    // Toggle missing-translation highlighting
-    vscode.commands.registerCommand('resx.toggleMissingHighlight', () =>
-      toggleBooleanConfig('highlightMissingTranslations', true, 'RESX missing-translation highlight')
-    ),
-
     // Change font family
     vscode.commands.registerCommand('resx.changeFontFamily', async () => {
       const resxCfg = vscode.workspace.getConfiguration('resx');

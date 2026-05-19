@@ -123,12 +123,6 @@ export interface WebviewFindMessage {
   options: { regex: boolean; wholeWord: boolean; matchCase: boolean };
 }
 
-/** Open an external link from a cell */
-export interface WebviewOpenLinkMessage {
-  type: 'openLink';
-  url: string;
-}
-
 /** Replace matched cells */
 export interface WebviewReplaceMatchesMessage {
   type: 'replaceMatches';
@@ -146,5 +140,4 @@ export type WebviewToHostMessage =
   | WebviewAddLocaleMessage
   | WebviewCopyMessage
   | WebviewFindMessage
-  | WebviewOpenLinkMessage
   | WebviewReplaceMatchesMessage;

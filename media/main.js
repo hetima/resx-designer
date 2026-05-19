@@ -200,10 +200,6 @@ const getCellTarget = target => {
   const el = (target instanceof Element) ? target : (target instanceof Node ? target.parentElement : null);
   return el ? el.closest('td, th') : null;
 };
-const getLinkTarget = target => {
-  const el = (target instanceof Element) ? target : (target instanceof Node ? target.parentElement : null);
-  return el ? el.closest('.csv-link[data-href]') : null;
-};
 const isColumnHeaderCell = cell => cell && cell.tagName === 'TH' && cell.getAttribute('data-col') !== '-1' && cell.getAttribute('data-col') !== null;
 const isRowIndexCell = cell => cell && cell.getAttribute && cell.getAttribute('data-col') === '-1';
 
@@ -395,15 +391,6 @@ let isDragging = false;
 let isResizing = false;
 
 table?.addEventListener('mousedown', e => {
-  // Handle Ctrl+Click on links
-  const link = getLinkTarget(e.target);
-  if (link && (e.ctrlKey || e.metaKey)) {
-    e.preventDefault();
-    const href = link.getAttribute('data-href');
-    if (href) vscode.postMessage({ type: 'openLink', url: href });
-    return;
-  }
-
   hideContextMenu();
   const cell = getCellTarget(e.target);
   if (!cell) return;
