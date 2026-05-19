@@ -374,7 +374,7 @@ const commitEdit = () => {
 const enterEditMode = (cell, mode) => {
   if (!cell) return;
   const { row, col } = getCellCoords(cell);
-  if (isRowIndexCell(cell)) return;
+  if (isRowIndexCell(cell) || isColumnHeaderCell(cell)) return;
 
   if (editingCell && editingCell !== cell) commitEdit();
 
