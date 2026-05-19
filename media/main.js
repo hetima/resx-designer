@@ -43,7 +43,9 @@ let startCell = null, endCell = null, selectionMode = "cell";
 let editingCell = null, originalCellValue = "";
 let editMode = null; // 'quick' | 'detail' | null
 const DRAG_THRESHOLD_PX = 4;
-const RESIZE_HANDLE_PX = 6;
+const RESIZE_HANDLE_PX = 10;
+const MIN_COL_WIDTH = 80;
+const MIN_INDEX_COL_WIDTH = 30;
 let resizeState = null;
 
 const table = document.querySelector('#csv-root table');
@@ -68,7 +70,8 @@ const normalizeSizeState = (raw, minSize) => {
 
 const applySizeStateToRenderedCells = () => {
   for (const [col, width] of Object.entries(columnSizeState)) {
-    const px = Math.max(40, Math.round(Number(width)));
+    const minW = col === '0' ? MIN_INDEX_COL_WIDTH : MIN_COL_WIDTH;
+    const px = Math.max(minW, Math.round(Number(width)));
     table.querySelectorAll(`[data-col="${col}"]`).forEach(cell => {
       cell.style.width = `${px}px`;
       cell.style.minWidth = `${px}px`;
@@ -157,6 +160,14 @@ const restoreState = () => {
     if (typeof st.scrollY === 'number' && scrollContainer) scrollContainer.scrollTop = st.scrollY;
   } catch {}
 };
+
+// ── Toolbar buttons ────────────────────────────────────────────────
+
+document.getElementById('openAsTextBtn')?.addEventListener('click', () => {
+  vscode.postMessage({ type: 'openAsText' });
+});
+
+// End toolbar buttons ──────────────────────────────────────────────
 
 restoreState();
 setTimeout(() => { try { restoreState(); } catch {} }, 0);
@@ -390,7 +401,82 @@ let mouseDownPos = null;
 let isDragging = false;
 let isResizing = false;
 
+// ── Column resize (header drag) ───────────────────────────────────
+
+const getThResizeInfo = (th) => {
+  const rect = th.getBoundingClientRect();
+  return { col: parseInt(th.getAttribute('data-col'), 10), right: rect.right, width: rect.width };
+};
+
+table?.addEventListener('mousemove', e => {
+  if (isResizing) return;
+  if (resizeState) return;
+  const th = (e.target instanceof Element) ? e.target.closest('th') : null;
+  if (!th) { table.style.cursor = ''; return; }
+  const info = getThResizeInfo(th);
+  if (info.col < 0) { table.style.cursor = ''; return; }
+  const distFromRight = info.right - e.clientX;
+  table.style.cursor = (distFromRight >= 0 && distFromRight <= RESIZE_HANDLE_PX) ? 'col-resize' : '';
+});
+
+const handleResizeStart = (e) => {
+  const th = (e.target instanceof Element) ? e.target.closest('th') : null;
+  if (!th) return false;
+  const info = getThResizeInfo(th);
+  if (info.col < 0) return false;
+  const distFromRight = info.right - e.clientX;
+  if (distFromRight < 0 || distFromRight > RESIZE_HANDLE_PX) return false;
+  const minW = info.col === 0 ? MIN_INDEX_COL_WIDTH : MIN_COL_WIDTH;
+  resizeState = { col: info.col, startX: e.clientX, startWidth: Math.max(minW, info.width), minW };
+  isResizing = true;
+  document.body.style.cursor = 'col-resize';
+  e.preventDefault();
+  return true;
+};
+
+const handleResizeMove = (e) => {
+  if (!resizeState) return;
+  const dx = e.clientX - resizeState.startX;
+  const newWidth = Math.max(resizeState.minW, resizeState.startWidth + dx);
+  const px = `${Math.round(newWidth)}px`;
+  table.querySelectorAll(`[data-col="${resizeState.col}"]`).forEach(cell => {
+    cell.style.width = px;
+    cell.style.minWidth = px;
+    cell.style.maxWidth = px;
+  });
+};
+
+const handleResizeEnd = () => {
+  if (!resizeState) return;
+  const col = resizeState.col;
+  // Read final width from a th element for the column
+  const th = table.querySelector(`th[data-col="${col}"]`);
+  const finalWidth = th ? Math.round(th.getBoundingClientRect().width) : Math.round(resizeState.startWidth);
+  columnSizeState[String(col)] = Math.max(resizeState.minW, finalWidth);
+  resizeState = null;
+  isResizing = false;
+  document.body.style.cursor = '';
+  table.style.cursor = '';
+  persistState();
+};
+
+// Override mousedown on th to intercept column resize
 table?.addEventListener('mousedown', e => {
+  if (e.button === 0 && handleResizeStart(e)) return;
+});
+
+document.addEventListener('mousemove', e => {
+  if (isResizing) { handleResizeMove(e); return; }
+});
+
+document.addEventListener('mouseup', e => {
+  if (isResizing) { handleResizeEnd(); return; }
+});
+
+// End column resize ────────────────────────────────────────────────
+
+table?.addEventListener('mousedown', e => {
+  if (isResizing) return;
   hideContextMenu();
   const cell = getCellTarget(e.target);
   if (!cell) return;

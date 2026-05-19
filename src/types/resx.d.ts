@@ -130,6 +130,11 @@ export interface WebviewReplaceMatchesMessage {
   replacements: Array<{ row: number; col: number; value: string }>;
 }
 
+/** Open current file in default text editor */
+export interface WebviewOpenAsTextMessage {
+  type: 'openAsText';
+}
+
 export type WebviewToHostMessage =
   | WebviewEditCellMessage
   | WebviewReplaceCellsMessage
@@ -140,4 +145,5 @@ export type WebviewToHostMessage =
   | WebviewAddLocaleMessage
   | WebviewCopyMessage
   | WebviewFindMessage
-  | WebviewReplaceMatchesMessage;
+  | WebviewReplaceMatchesMessage
+  | WebviewOpenAsTextMessage;

@@ -33,6 +33,12 @@ class ResxEditorController {
     this.currentWebviewPanel = webviewPanel;
     ResxEditorProvider.editors.push(this);
 
+    // Detect diff/compare view or untitled scheme — fall back to default text editor
+    if (webviewPanel.viewColumn === undefined) {
+      await this.openWithDefaultEditorAndClose(webviewPanel);
+      return;
+    }
+
     const config = vscode.workspace.getConfiguration('resx', this.document.uri);
     if (!config.get<boolean>('enabled', true)) {
       await this.openWithDefaultEditorAndClose(webviewPanel);
@@ -271,6 +277,11 @@ class ResxEditorController {
         break;
       case 'replaceMatches':
         await this.handleReplaceMatches(msg.requestId, msg.replacements);
+        break;
+      case 'openAsText':
+        if (this.currentWebviewPanel) {
+          await this.openWithDefaultEditorAndClose(this.currentWebviewPanel);
+        }
         break;
     }
   }
@@ -659,24 +670,23 @@ class ResxEditorController {
     <title>RESX</title>
     <style nonce="${nonce}">
       body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 0; user-select: none; }
-      .table-container { overflow: auto; height: 100vh; }
+      .table-container { overflow: auto; height: calc(100vh - 33px); }
       table { border-collapse: collapse; width: max-content; }
       th, td { padding: ${cellPadding}px 8px; border: 1px solid ${isDark ? '#555' : '#ccc'}; font-size: inherit; }
-      th { position: sticky; top: 0; background-color: ${isDark ? '#1e1e1e' : '#ffffff'}; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; z-index: 10; }
-      td { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; }
+      th { position: sticky; top: 0; background-color: ${isDark ? '#1e1e1e' : '#ffffff'}; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; z-index: 10; user-select: none; }
+      td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      td:hover { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; }
       td.selected, th.selected { background-color: ${isDark ? '#333333' : '#cce0ff'} !important; }
       td.editing, th.editing { overflow: visible !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; max-width: none !important; }
       .highlight { background-color: ${isDark ? '#2a2a2a' : '#fefefe'} !important; }
       .active-match { background-color: ${isDark ? '#444444' : '#ffffcc'} !important; }
-      .csv-link { color: ${isDark ? '#6cb6ff' : '#0066cc'}; text-decoration: underline; cursor: pointer; }
-      .csv-link:hover { color: ${isDark ? '#8ecfff' : '#0044aa'}; }
       td.missing-translation { background-color: ${isDark ? '#3a2a2a' : '#fff3e0'} !important; }
       td.missing-translation.selected { background-color: ${isDark ? '#4a3a3a' : '#ffe0b2'} !important; }
       .locale-header { cursor: default; }
-      .name-col { min-width: 20ch; }
-      .value-col { min-width: 25ch; }
-      .index-col { min-width: 3ch; max-width: 6ch; color: #888; text-align: right; }
-      .comment-col { min-width: 15ch; }
+      .name-col { min-width: 120px; width: 180px; max-width: 400px; }
+      .value-col { min-width: 120px; width: 180px; max-width: 400px; }
+      .index-col { min-width: 30px; max-width: 50px; color: #888; text-align: right; }
+      .comment-col { min-width: 100px; width: 150px; max-width: 300px; }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
         background: #171717; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px;
@@ -714,9 +724,15 @@ class ResxEditorController {
       #contextMenu { position: absolute; display: none; background: ${isDark ? '#2d2d2d' : '#ffffff'}; border: 1px solid ${isDark ? '#555' : '#ccc'}; z-index: 10000; font-family: ${this.escapeCss(fontFamily)}; font-size: inherit; }
       #contextMenu div { padding: 4px 12px; cursor: pointer; }
       #contextMenu div:hover { background: ${isDark ? '#3d3d3d' : '#eeeeee'}; }
+      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: ${isDark ? '#252526' : '#f3f3f3'}; border-bottom: 1px solid ${isDark ? '#3e3e3e' : '#ddd'}; }
+      #toolbar button { padding: 2px 10px; border: 1px solid ${isDark ? '#555' : '#bbb'}; border-radius: 3px; background: ${isDark ? '#3c3c3c' : '#ffffff'}; color: ${isDark ? '#ccc' : '#333'}; font-size: 12px; cursor: pointer; white-space: nowrap; }
+      #toolbar button:hover { background: ${isDark ? '#4c4c4c' : '#e8e8e8'}; }
     </style>
   </head>
   <body>
+    <div id="toolbar">
+      <button id="openAsTextBtn" title="Open this file in the default text editor">Open as Text</button>
+    </div>
     <div id="csv-root" class="table-container"
          data-resx="1"
          data-defaultvalues="${this.escapeAttr(defaultValues)}"
