@@ -1,120 +1,94 @@
 import * as vscode from 'vscode';
-import { CsvEditorProvider } from './CsvEditorProvider';
-import { registerCsvCommands } from './commands';
+import { ResxEditorProvider } from './ResxEditorProvider';
+import { registerResxCommands } from './commands';
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('CSV: Extension activated');
+  console.log('RESX: Extension activated');
 
-  // Commands (toggle features, change separator/font)
-  registerCsvCommands(context);
+  // Commands
+  registerResxCommands(context);
 
-  // Auto-refresh all open CSV editors when relevant CSV settings change
+  // Register the custom editor provider
+  const provider = new ResxEditorProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(ResxEditorProvider.viewType, provider, {
+      webviewOptions: { retainContextWhenHidden: true },
+      supportsMultipleEditorsPerDocument: false
+    })
+  );
+
+  // Auto-refresh all open RESX editors when relevant settings change
+  const refreshKeys = [
+    'resx.fontFamily',
+    'resx.fontSize',
+    'resx.cellPadding',
+    'resx.clickableLinks',
+    'resx.highlightMissingTranslations',
+    'resx.showSerialIndex',
+    'resx.mouseWheelZoom',
+    'resx.mouseWheelZoomInvert',
+  ];
+
   const cfgListener = vscode.workspace.onDidChangeConfiguration(e => {
-    // If the user turned the extension on, immediately upgrade open CSV/TSV tabs
-    if (e.affectsConfiguration('csv.enabled')) {
-      const enabled = vscode.workspace.getConfiguration('csv').get<boolean>('enabled', true);
-      console.log(`[CSV(enable)]: configuration changed -> enabled=${enabled}`);
+    if (e.affectsConfiguration('resx.enabled')) {
+      const enabled = vscode.workspace.getConfiguration('resx').get<boolean>('enabled', true);
       if (enabled) {
-        // Snapshot candidates first to avoid mutating collections during iteration
-        type Candidate = { group: vscode.TabGroup; groupIndex: number; tab: vscode.Tab; tabIndex: number; uri: vscode.Uri; wasActive: boolean; wasPreview: boolean; viewColumn: vscode.ViewColumn | undefined };
-        const candidates: Candidate[] = [];
+        // Reopen any open .resx files with our editor
         const groups = vscode.window.tabGroups.all;
-        console.log(`[CSV(enable)]: scanning ${groups.length} tab group(s)`);
-        groups.forEach((group, gi) => {
-          console.log(`[CSV(enable)]: group[${gi}] has ${group.tabs.length} tab(s)`);
-          group.tabs.forEach((tab, ti) => {
+        const candidates: Array<{
+          group: vscode.TabGroup;
+          tab: vscode.Tab;
+          uri: vscode.Uri;
+          wasActive: boolean;
+          wasPreview: boolean;
+          viewColumn: vscode.ViewColumn | undefined;
+        }> = [];
+
+        groups.forEach(group => {
+          group.tabs.forEach(tab => {
             const input: any = (tab as any).input;
             const viewType = input?.viewType;
-            const uri: vscode.Uri | undefined = input?.uri instanceof vscode.Uri ? (input.uri as vscode.Uri) : undefined;
-            const path = uri?.fsPath || '(no-uri)';
-            console.log(`[CSV(enable)]: group[${gi}] tab[${ti}] vt=${viewType ?? '(text?)'} uri=${path} active=${tab.isActive} preview=${tab.isPreview}`);
-            if (!input) return;
-            if (viewType === CsvEditorProvider.viewType) return; // already our editor
-            if (!uri) return;
-            const fsPath = uri.fsPath?.toLowerCase?.() || '';
-            const isCsvLike = fsPath.endsWith('.csv') || fsPath.endsWith('.tsv') || fsPath.endsWith('.tab') || fsPath.endsWith('.psv');
-            console.log(`[CSV(enable)]: -> eligible=${isCsvLike}`);
-            if (!isCsvLike) return;
-            candidates.push({ group, groupIndex: gi, tab, tabIndex: ti, uri, wasActive: tab.isActive, wasPreview: tab.isPreview, viewColumn: group.viewColumn });
+            const uri: vscode.Uri | undefined = input?.uri instanceof vscode.Uri ? input.uri : undefined;
+            if (!input || !uri) return;
+            if (viewType === ResxEditorProvider.viewType) return;
+            if (!uri.fsPath.toLowerCase().endsWith('.resx')) return;
+            candidates.push({
+              group, tab, uri,
+              wasActive: tab.isActive,
+              wasPreview: tab.isPreview,
+              viewColumn: group.viewColumn,
+            });
           });
         });
 
-        console.log(`[CSV(enable)]: candidates=${candidates.length}`);
         (async () => {
           const processed = new Set<string>();
           for (const c of candidates) {
+            try { await vscode.window.tabGroups.close(c.tab); } catch {}
             try {
-              console.log(`[CSV(enable)]: closing group[${c.groupIndex}] tab[${c.tabIndex}] uri=${c.uri.fsPath}`);
-              await vscode.window.tabGroups.close(c.tab);
-            } catch (err) {
-              console.error(`[CSV(enable)]: close failed for ${c.uri.fsPath}`, err);
-            }
-            try {
-              const openOpts: any = { viewColumn: c.viewColumn, preserveFocus: !c.wasActive, preview: c.wasPreview };
-              console.log(`[CSV(enable)]: opening custom editor for ${c.uri.fsPath} in column=${c.viewColumn}`);
-              await vscode.commands.executeCommand('vscode.openWith', c.uri, CsvEditorProvider.viewType, openOpts);
-              processed.add(c.uri.toString());
-            } catch (err) {
-              console.error(`[CSV(enable)]: openWith failed for ${c.uri.fsPath}`, err);
-            }
-          }
-
-          // Final sweep: ensure no stale non-custom tabs remain for processed URIs across all groups
-          try {
-            const stale: vscode.Tab[] = [];
-            vscode.window.tabGroups.all.forEach((g, gi) => {
-              g.tabs.forEach((t, ti) => {
-                const inp: any = (t as any).input;
-                const vt = inp?.viewType;
-                const u: vscode.Uri | undefined = inp?.uri instanceof vscode.Uri ? (inp.uri as vscode.Uri) : undefined;
-                const key = u?.toString();
-                if (key && processed.has(key) && vt !== CsvEditorProvider.viewType) {
-                  console.log(`[CSV(enable)]: final-sweep closing group[${gi}] tab[${ti}] uri=${u?.fsPath} vt=${vt}`);
-                  stale.push(t);
-                }
+              await vscode.commands.executeCommand('vscode.openWith', c.uri, ResxEditorProvider.viewType, {
+                viewColumn: c.viewColumn,
+                preserveFocus: !c.wasActive,
+                preview: c.wasPreview,
               });
-            });
-            if (stale.length) {
-              await vscode.window.tabGroups.close(stale);
-            }
-          } catch (err) {
-            console.error('[CSV(enable)]: final-sweep error', err);
+              processed.add(c.uri.toString());
+            } catch {}
           }
-
-          console.log(`[CSV(enable)]: done processing ${candidates.length} candidate(s)`);
         })();
+      } else {
+        ResxEditorProvider.editors.forEach(ed => ed.refresh());
       }
     }
 
-    const keys = [
-      'csv.fontFamily',
-      'csv.cellPadding',
-      'csv.columnColorMode',
-      'csv.columnColorPalette',
-      'csv.diffUseThemeForeground',
-      'csv.clickableLinks',
-      'csv.showTrailingEmptyRow',
-      'csv.separatorMode',
-      'csv.defaultSeparator',
-      'csv.separatorByExtension'
-    ];
-    const changed = keys.filter(k => e.affectsConfiguration(k));
-    if (changed.length) {
-      CsvEditorProvider.editors.forEach(ed => ed.refresh());
+    const shouldRefresh = refreshKeys.some(key => e.affectsConfiguration(key));
+    if (shouldRefresh) {
+      ResxEditorProvider.editors.forEach(ed => {
+        if (ed.isActive()) { ed.refresh(); }
+      });
     }
   });
+
   context.subscriptions.push(cfgListener);
-
-  // Register the custom editor provider for CSV/TSV
-  context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(
-      CsvEditorProvider.viewType,
-      new CsvEditorProvider(context),
-      { supportsMultipleEditorsPerDocument: false }
-    )
-  );
 }
 
-export function deactivate() {
-  console.log('CSV: Extension deactivated');
-}
+export function deactivate() {}

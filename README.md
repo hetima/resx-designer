@@ -1,23 +1,17 @@
-# **resx-desiner**
+# resx-designer
 
-
----
-
-## Screenshots
-
-![Dark Theme Screenshot](images/Screenshot_dark.png)
-![Light Theme Screenshot](images/Screenshot_light.png)
-
----
-
-
----
+Multi-language .NET resource (`.resx`) editor for VS Code. Edit all locale files simultaneously in a unified grid view. Based on [jonaraphael/csv](https://github.com/jonaraphael/csv)
 
 ## Features
 
-
----
-
+- **Multi-language grid view** — Open a `.resx` file and see all related locales side by side: `Name | Comment | (default) | ja | en | fr | …`
+- **Automatic locale detection** — Finds related `.resx` files in the same folder by naming convention (`Resources.resx`, `Resources.ja.resx`, `Resources.fr.resx`, …)
+- **Missing translation highlighting** — Untranslated entries (empty or identical to the default value) are visually flagged
+- **Edit & Navigate** — Quick edit, detail edit, keyboard navigation, multi-cell selection
+- **Find & Replace** — Search across all cells with regex, case, and whole-word support
+- **Zoom** — `Ctrl/Cmd + Mouse Wheel` or `Ctrl/Cmd + +/-/0`
+- **Add new locales** — Create new `.resx` locale files directly from the editor
+- **External change detection** — Automatically refreshes when related locale files are modified outside VS Code
 
 ## Getting Started
 
@@ -29,101 +23,79 @@
 
 ### 2. Open a RESX File
 
-- The file will automatically load, presenting your data in an interactive grid view.
+- Open any `.resx` file. If related locale files exist in the same folder (same base name), they are automatically loaded as columns.
 
 ### 3. Edit and Navigate
 
-- **Edit Modes:**
-  - Quick edit: start typing any character to edit the selected cell immediately. Press any Arrow key to save and move the selection to the next cell in that direction.
-  - Detail edit: press `Enter` on a selected cell or double‑click to enter a focused edit. Arrow Left/Right move the text caret; Arrow Up goes to start; Arrow Down goes to end. Click outside the cell (or blur) to save.
-- **Keyboard Navigation:** Use Arrow keys to move between cells when not editing. Use `Tab`/`Shift+Tab` to move horizontally (wrapping across rows as needed).
-- **Multi-Cell Selection:** Click and drag or use `Shift + Click` to select multiple cells, then copy them as CSV using `Ctrl/Cmd + C`.
-- **Find & Replace:** Press `Ctrl/Cmd + F` to open Find, or `Ctrl/Cmd + H` to open Find + Replace.
-
----
+- **Quick edit**: start typing on a selected cell. Press an Arrow key to save and move.
+- **Detail edit**: press `Enter` or double‑click a cell for full caret control. `Shift+Enter` for line breaks. Click outside or press Arrow Up/Down to save and exit.
+- **Keyboard Navigation**: Arrow keys to move, `Tab`/`Shift+Tab` for horizontal wrapping.
+- **Multi-Cell Selection**: Click and drag or `Shift + Click`. `Ctrl/Cmd + C` to copy.
+- **Find & Replace**: `Ctrl/Cmd + F` / `Ctrl/Cmd + H`.
+- **Right-click context menu**: Add/delete rows, sort, add new locale.
 
 ## Commands
 
-Open the Command Palette and search for:
+Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 
-- `RESX: Toggle Extension On/Off` (`csv.toggleExtension`)
-  
+| Command | Description |
+|---|---|
+| `RESX: Toggle Extension On/Off` | Enable or disable the custom editor |
+| `RESX: Toggle Serial Index Column` | Show/hide the `#` column |
+| `RESX: Toggle Clickable Links` | Make URLs in cells Ctrl+clickable |
+| `RESX: Toggle Missing Translation Highlight` | Toggle untranslated cell highlighting |
+| `RESX: Change Font Family` | Override the editor font |
+| `RESX: Add New Locale` | Create a new `.resx` locale file |
+| `RESX: Refresh Locale Files` | Re-scan the folder for locale files |
+| `RESX: Sort Entries by Name` | Sort all rows A–Z across all locale files |
 
 ## Settings
 
-Global (Settings UI or `settings.json`):
+All settings are scoped to the `resx.*` prefix.
 
-- `resx.enabled` (boolean, default `true`): Enable/disable the custom editor.
-- `resx.fontFamily` (string, default empty): Override font family; falls back to `editor.fontFamily`.
-- `resx.fontSize` (number, default `0`): Override font size in px; set to `0` to inherit `editor.fontSize`.
-- `resx.mouseWheelZoom` (boolean, default `true`): Enable `Ctrl/Cmd + Mouse Wheel` zooming in the resx editor.
-- `resx.mouseWheelZoomInvert` (boolean, default `false`): Invert the `Ctrl/Cmd + Mouse Wheel` zoom direction.
-- `resx.cellPadding` (number, default `4`): Vertical cell padding in pixels.
-- `resx.columnColorMode` (string, default `type`): `type` keeps resx’s type-based column colors; `theme` uses your theme foreground color for all columns.
-- `resx.columnColorPalette` (string, default `default`): Type-color palette when `resx.columnColorMode` is `type`. `cool` biases colors toward greens/blues; `warm` biases colors toward oranges/reds.
-- `resx.diffUseThemeForeground` (boolean, default `true`): In compare/diff views, use theme foreground color so diff highlighting remains readable.
-- `resx.clickableLinks` (boolean, default `true`): Make URLs in cells clickable. Ctrl/Cmd+click to open links.
-- `resx.showTrailingEmptyRow` (boolean, default `true`): Show the extra empty row at the end of the table. Turn this off to hide that visual append row.
-- `resx.separatorMode` (string, default `extension`): Separator selection mode when no per-file override exists. `extension` uses extension mapping, `auto` detects from content first, `default` always uses `resx.defaultSeparator`.
-- `resx.defaultSeparator` (string, default `,`): Fallback separator. Use `\\t` in `settings.json` for tabs.
-- `resx.maxFileSizeMB` (number, default `10`): Soft limit for opening files in resx view. If exceeded, resx prompts: `Cancel`, `Continue This Time`, or `Ignore Forever` (sets this setting to `0`).
+| Setting | Type | Default | Description |
+|---|---|---|---|
+| `resx.enabled` | `boolean` | `true` | Enable/disable the custom editor |
+| `resx.fontFamily` | `string` | *(inherit)* | Override font family |
+| `resx.fontSize` | `number` | `0` | Override font size in px (`0` = inherit) |
+| `resx.mouseWheelZoom` | `boolean` | `true` | Enable Ctrl/Cmd + scroll zoom |
+| `resx.mouseWheelZoomInvert` | `boolean` | `false` | Invert zoom direction |
+| `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
+| `resx.clickableLinks` | `boolean` | `true` | Ctrl/Cmd+click to open URLs |
+| `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
+| `resx.showSerialIndex` | `boolean` | `true` | Show `#` column |
+| `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |
 
-Per-file (stored by the extension; set via commands):
+## Editing Shortcuts
 
----
-
-## Editing Modes and Shortcuts
-
-- Quick edit:
-  - Start: type any character (not Enter) on a selected cell.
-  - Save and move: press Arrow Up/Down/Left/Right to save and select the adjacent cell; does not re-enter edit.
-- Detail edit:
-  - Start: press `Enter` on a selected cell or double‑click a cell.
-  - Caret navigation: Arrow Left/Right move one character; Arrow Up moves caret to start; Arrow Down moves caret to end.
-  - New line in cell: `Shift + Enter` inserts a line break inside the current cell.
-  - Exit/save: click outside the cell or move focus to commit changes.
-- Global:
-  - Copy selection: `Ctrl/Cmd + C`
-  - Paste selection: `Ctrl/Cmd + V` (selection mode). Pasting a single value into a selected rectangle fills that rectangle.
-  - Zoom in/out/reset: `Ctrl/Cmd + +`, `Ctrl/Cmd + -`, `Ctrl/Cmd + 0` (also `Ctrl/Cmd + Mouse Wheel`)
-  - Find: `Ctrl/Cmd + F`
-  - Replace: `Ctrl/Cmd + H`
-  - Next/Previous match: `F3` / `Shift + F3` (also `Enter` / `Shift + Enter` in the Find box)
-  - Select all: `Ctrl/Cmd + A`
-
----
+| Shortcut | Action |
+|---|---|
+| Arrow keys | Navigate cells |
+| `Tab` / `Shift+Tab` | Move right / left (wraps) |
+| `Enter` | Enter detail edit mode |
+| Any printable key | Enter quick edit mode |
+| `Shift+Enter` | New line inside detail edit |
+| `Ctrl/Cmd + C` | Copy selection |
+| `Ctrl/Cmd + F` | Find |
+| `Ctrl/Cmd + H` | Find & Replace |
+| `F3` / `Shift+F3` | Next / previous find match |
+| `Ctrl/Cmd + A` | Select all |
+| `Ctrl/Cmd + +/-/0` | Zoom in / out / reset |
+| `Ctrl/Cmd + Mouse Wheel` | Zoom |
+| `Escape` | Close find/replace or cancel edit |
 
 ## Release Notes
 
-
 See full history in `CHANGELOG.md`.
-
----
 
 ## Development
 
-Clone the repository and run the following commands:
-
 ```bash
 npm install
+npm run compile
 npm run lint
-npm test
-```
-
-To create a VS Code extension package, run:
-
-```bash
 npm run package
 ```
-
-To compile without running tests:
-
-```bash
-npm run compile
-```
-
-
----
 
 ## License
 
