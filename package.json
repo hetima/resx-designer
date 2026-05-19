@@ -23,7 +23,8 @@
     "onCommand:resx.changeFontFamily",
     "onCommand:resx.addLocale",
     "onCommand:resx.refreshLocales",
-    "onCommand:resx.sortByName"
+    "onCommand:resx.sortByName",
+    "onCommand:resx.setDefaultResx"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -59,6 +60,10 @@
       {
         "command": "resx.debugClearState",
         "title": "RESX: Debug Clear Workspace State"
+      },
+      {
+        "command": "resx.setDefaultResx",
+        "title": "RESX: Set as Default resx"
       }
     ],
     "configuration": {
@@ -120,6 +125,12 @@
           "default": 10,
           "minimum": 0,
           "description": "Soft max size in MB for opening files in RESX view. 0 disables the limit."
+        },
+        "resx.defaultResx": {
+          "type": "string",
+          "default": "Resources/Strings.resx",
+          "description": "Path relative to workspace root of the .resx file that triggers Designer.test.cs generation on save.",
+          "scope": "resource"
         }
       }
     },
@@ -133,7 +144,23 @@
           }
         ]
       }
-    ]
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "resx.setDefaultResx",
+          "when": "resourceLangId == resx",
+          "group": "1_resx@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "resx.setDefaultResx",
+          "when": "resourceLangId == resx",
+          "group": "1_resx@1"
+        }
+      ]
+    }
   },
   "scripts": {
     "compile": "tsc -p ./",

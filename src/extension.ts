@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { registerResxCommands } from './commands';
@@ -86,6 +87,45 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   context.subscriptions.push(cfgListener);
+
+  // ── Auto-generate Designer.test.cs on .resx save ──────────────────
+  const saveListener = vscode.workspace.onDidSaveTextDocument(async (doc) => {
+    const config = vscode.workspace.getConfiguration('resx', doc.uri);
+    const inspected = config.inspect<string>('defaultResx');
+    // Only trigger when the user has explicitly set the value (workspace/folder/global)
+    if (!inspected?.workspaceFolderValue && !inspected?.workspaceValue
+      && !inspected?.globalValue && !inspected?.globalLanguageValue
+      && !inspected?.workspaceLanguageValue && !inspected?.workspaceFolderLanguageValue) {
+      return;
+    }
+    const defaultResx = config.get<string>('defaultResx')!;
+    // Empty string means generation is disabled
+    if (!defaultResx) { return; }
+
+    // Only trigger for files matching the configured default resx
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(doc.uri);
+    const relativePath = workspaceFolder
+      ? path.relative(workspaceFolder.uri.fsPath, doc.uri.fsPath).replace(/\\/g, '/')
+      : path.basename(doc.uri.fsPath);
+    if (relativePath !== defaultResx) { return; }
+
+    const stem = path.basename(doc.uri.fsPath, '.resx');
+    const outputPath = path.join(path.dirname(doc.uri.fsPath), `${stem}.Designer.test.cs`);
+
+    const content = `// Generated at ${new Date().toISOString()}`;
+
+    try {
+      await vscode.workspace.fs.writeFile(
+        vscode.Uri.file(outputPath),
+        Buffer.from(content, 'utf8')
+      );
+      vscode.window.showInformationMessage(`RESX: Generated ${path.basename(outputPath)}`);
+    } catch (e) {
+      vscode.window.showErrorMessage(`RESX: Failed to generate ${path.basename(outputPath)}: ${e}`);
+    }
+  });
+
+  context.subscriptions.push(saveListener);
 }
 
 export function deactivate() {}

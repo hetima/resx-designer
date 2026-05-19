@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
@@ -168,6 +169,44 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(
         `RESX: Cleared ${removed.length} state key(s): ${removed.join(', ')}`
       );
+    }),
+
+    // Set a .resx file as the default resx for test generation.
+    // - Context menu: clicked URI is provided → register that file immediately.
+    // - Command palette: no URI argument → prompt the user for a path.
+    vscode.commands.registerCommand('resx.setDefaultResx', async (clickedUri?: vscode.Uri) => {
+      if (clickedUri) {
+        // Called from context menu — register the clicked file's relative path
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(clickedUri);
+        const relativePath = workspaceFolder
+          ? path.relative(workspaceFolder.uri.fsPath, clickedUri.fsPath).replace(/\\/g, '/')
+          : path.basename(clickedUri.fsPath);
+
+        await vscode.workspace.getConfiguration('resx', clickedUri).update(
+          'defaultResx', relativePath, vscode.ConfigurationTarget.WorkspaceFolder
+        );
+        vscode.window.showInformationMessage(`RESX: Default resx set to "${relativePath}".`);
+      } else {
+        // Called from command palette — let the user type a path (empty string disables)
+        const current = vscode.workspace.getConfiguration('resx')
+          .get<string>('defaultResx', '');
+        const input = await vscode.window.showInputBox({
+          prompt: 'Enter the relative path of the default .resx file (empty to disable).',
+          value: current,
+          placeHolder: 'e.g. Resources/Strings.resx',
+        });
+        if (input === undefined) { return; } // cancelled
+
+        const targetUri = vscode.window.activeTextEditor?.document.uri;
+        await vscode.workspace.getConfiguration('resx', targetUri).update(
+          'defaultResx', input, vscode.ConfigurationTarget.WorkspaceFolder
+        );
+        vscode.window.showInformationMessage(
+          input
+            ? `RESX: Default resx set to "${input}".`
+            : 'RESX: Default resx cleared. Generation disabled.'
+        );
+      }
     })
   );
 }
