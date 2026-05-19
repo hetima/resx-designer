@@ -407,8 +407,7 @@ let isResizing = false;
 // ── Column resize (header drag) ───────────────────────────────────
 
 const getThResizeInfo = (th) => {
-  const rect = th.getBoundingClientRect();
-  return { col: parseInt(th.getAttribute('data-col'), 10), right: rect.right, width: rect.width };
+  return { col: parseInt(th.getAttribute('data-col'), 10), width: th.offsetWidth };
 };
 
 table?.addEventListener('mousemove', e => {
@@ -418,7 +417,7 @@ table?.addEventListener('mousemove', e => {
   if (!th) { table.style.cursor = ''; return; }
   const info = getThResizeInfo(th);
   if (info.col < 0) { table.style.cursor = ''; return; }
-  const distFromRight = info.right - e.clientX;
+  const distFromRight = th.offsetWidth - e.offsetX;
   table.style.cursor = (distFromRight >= 0 && distFromRight <= RESIZE_HANDLE_PX) ? 'col-resize' : '';
 });
 
@@ -427,7 +426,7 @@ const handleResizeStart = (e) => {
   if (!th) return false;
   const info = getThResizeInfo(th);
   if (info.col < 0) return false;
-  const distFromRight = info.right - e.clientX;
+  const distFromRight = th.offsetWidth - e.offsetX;
   if (distFromRight < 0 || distFromRight > RESIZE_HANDLE_PX) return false;
   const minW = info.col === 0 ? MIN_INDEX_COL_WIDTH : MIN_COL_WIDTH;
   resizeState = { col: info.col, startX: e.clientX, startWidth: Math.max(minW, info.width), minW };

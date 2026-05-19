@@ -99,14 +99,19 @@ export async function findRelatedResxFiles(
 
 /**
  * Get the sorted list of locale keys for a locale set.
- * The default (null) locale always comes first.
+ * Order: default (null) → current locale → remaining locales (alphabetical).
+ * @param set - The locale set to sort.
+ * @param currentLocale - The locale of the currently open file (placed right after default).
  */
-export function getSortedLocales(set: ResxLocaleSet): Array<string | null> {
+export function getSortedLocales(set: ResxLocaleSet, currentLocale: string | null): Array<string | null> {
   const keys = Array.from(set.locales.keys());
   keys.sort((a, b) => {
     if (a === null && b === null) return 0;
     if (a === null) return -1;
     if (b === null) return 1;
+    // Place currentLocale immediately after default
+    if (a === currentLocale && b !== currentLocale) return -1;
+    if (b === currentLocale && a !== currentLocale) return 1;
     return (a as string).localeCompare(b as string);
   });
   return keys;

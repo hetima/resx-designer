@@ -129,7 +129,8 @@ class ResxEditorController {
   private buildGrid(): void {
     if (!this.localeSet) { return; }
 
-    const sortedLocales = getSortedLocales(this.localeSet);
+    const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
+    const sortedLocales = getSortedLocales(this.localeSet, currentLocale);
 
     // Build columns: index, name, comment, then each locale
     this.columns = [];
