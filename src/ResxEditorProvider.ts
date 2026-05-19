@@ -739,8 +739,8 @@ class ResxEditorController {
       body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 0; user-select: none; }
       .table-container { overflow: auto; height: calc(100vh - 33px); }
       table { border-collapse: collapse; width: max-content; }
-      th, td { padding: ${cellPadding}px 8px; border: 1px solid ${isDark ? '#555' : '#ccc'}; font-size: inherit; }
-      th { position: sticky; top: 0; background-color: ${isDark ? '#1e1e1e' : '#ffffff'}; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; z-index: 10; user-select: none; }
+      th, td { padding: ${cellPadding}px 8px; border: 1px solid ${isDark ? '#555' : '#ccc'}; font-size: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      th { position: sticky; top: 0; background-color: ${isDark ? '#1e1e1e' : '#ffffff'}; z-index: 10; user-select: none; }
       td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
       td:hover { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; }
       td.selected, th.selected { background-color: ${isDark ? '#333333' : '#cce0ff'} !important; }
@@ -750,10 +750,10 @@ class ResxEditorController {
       td.missing-translation { background-color: ${isDark ? '#3a2a2a' : '#fff3e0'} !important; }
       td.missing-translation.selected { background-color: ${isDark ? '#4a3a3a' : '#ffe0b2'} !important; }
       .locale-header { cursor: default; }
-      .name-col { min-width: 80px; width: 120px; max-width: 300px; }
-      .value-col { min-width: 80px; width: 120px; max-width: 300px; }
+      .name-col { min-width: 60px; width: 120px; max-width: 120px; }
+      .value-col { min-width: 80px; width: 160px; max-width: 180px; }
       .index-col { min-width: 40px; max-width: 50px; color: #888; text-align: right; }
-      .comment-col { min-width: 80px; width: 120px; max-width: 300px; }
+      .comment-col { min-width: 60px; width: 120px; max-width: 120px; }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
         background: #171717; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px;

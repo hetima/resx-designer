@@ -4,6 +4,30 @@ import { ResxEditorProvider } from './ResxEditorProvider';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+const STATE_KEY_PREFIX = 'resx.';
+
+/** Clear all persisted RESX state from workspaceState and globalState, then refresh editors. */
+async function clearAllExtensionState(context: vscode.ExtensionContext): Promise<string[]> {
+  const removed: string[] = [];
+
+  for (const store of [context.workspaceState, context.globalState] as const) {
+    for (const key of store.keys()) {
+      if (!key.startsWith(STATE_KEY_PREFIX)) { continue; }
+      try {
+        await store.update(key, undefined);
+        removed.push(`${store === context.workspaceState ? 'workspace' : 'global'}:${key}`);
+      } catch (e) {
+        console.warn(`RESX: failed to clear key "${key}"`, e);
+      }
+    }
+  }
+
+  // Refresh all open RESX editors so webview state is also reset
+  ResxEditorProvider.editors.forEach(ed => ed.refresh());
+
+  return removed;
+}
+
 async function toggleBooleanConfig(key: string, defaultVal: boolean, messagePrefix: string) {
   const config = vscode.workspace.getConfiguration('resx');
   const currentVal = config.get<boolean>(key, defaultVal);
@@ -114,6 +138,36 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         });
       }
       vscode.window.showInformationMessage('RESX: Sorted entries by name (A-Z).');
+    }),
+
+    // Debug: clear all workspace & global state (column sizes, row sizes, view mode, etc.)
+    vscode.commands.registerCommand('resx.debugClearState', async () => {
+      const yes = await vscode.window.showWarningMessage(
+        'This will clear all persisted RESX state (column/row sizes, view mode, serial index) for this workspace. Continue?',
+        { modal: true },
+        'Clear'
+      );
+      if (yes !== 'Clear') { return; }
+
+      // Send clearState to every open webview so that webview-level
+      // persisted state (columnSizes, rowSizes, zoomScale, scroll) is also reset.
+      for (const ed of ResxEditorProvider.editors) {
+        try {
+          const panel = (ed as any).currentWebviewPanel;
+          panel?.webview.postMessage({ type: 'clearState' });
+        } catch { /* ignore */ }
+      }
+
+      const removed = await clearAllExtensionState(context);
+
+      // Delay refresh so webview can process clearState before reload
+      setTimeout(() => {
+        ResxEditorProvider.editors.forEach(ed => ed.refresh());
+      }, 100);
+
+      vscode.window.showInformationMessage(
+        `RESX: Cleared ${removed.length} state key(s): ${removed.join(', ')}`
+      );
     })
   );
 }

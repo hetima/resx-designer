@@ -55,6 +55,10 @@
       {
         "command": "resx.sortByName",
         "title": "RESX: Sort Entries by Name"
+      },
+      {
+        "command": "resx.debugClearState",
+        "title": "RESX: Debug Clear Workspace State"
       }
     ],
     "configuration": {

@@ -995,6 +995,13 @@ window.addEventListener('message', event => {
     case 'addLocale':
       // Host echoes back – just re-search
       break;
+    case 'clearState':
+      columnSizeState = {};
+      rowSizeState = {};
+      zoomScale = 1;
+      document.body.style.fontSize = `${Math.max(1, BASE_FONT_SIZE_PX * zoomScale)}px`;
+      try { vscode.setState({}); } catch {}
+      break;
   }
 });
 
