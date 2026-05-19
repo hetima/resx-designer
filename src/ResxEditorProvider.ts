@@ -640,6 +640,7 @@ class ResxEditorController {
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
     const mouseWheelZoomEnabled = config.get<boolean>('mouseWheelZoom', true);
     const mouseWheelZoomInvert = config.get<boolean>('mouseWheelZoomInvert', false);
+    const singleClickEdit = config.get<boolean>('singleClickEdit', false);
     const addSerialIndex = config.get<boolean>('showSerialIndex', true);
 
     const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
@@ -740,6 +741,7 @@ class ResxEditorController {
          data-fontsize="${fontSize}"
          data-wheelzoomenabled="${mouseWheelZoomEnabled ? '1' : '0'}"
          data-wheelzoominvert="${mouseWheelZoomInvert ? '1' : '0'}"
+         data-singleclickedit="${singleClickEdit ? '1' : '0'}"
          data-rowscount="${rowsCount}">
       ${tableHtml}
     </div>

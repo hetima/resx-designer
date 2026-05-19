@@ -60,6 +60,7 @@ All settings are scoped to the `resx.*` prefix.
 | `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.showSerialIndex` | `boolean` | `true` | Show `#` column |
+| `resx.singleClickEdit` | `boolean` | `false` | Start editing on single click |
 | `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |
 
 ## Editing Shortcuts

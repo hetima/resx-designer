@@ -31,6 +31,7 @@ const computedFontSizePx = parsePositiveNumber(window.getComputedStyle(document.
 const BASE_FONT_SIZE_PX = configuredFontSizePx ?? computedFontSizePx ?? 14;
 const MOUSE_WHEEL_ZOOM_ENABLED = root?.dataset?.wheelzoomenabled !== '0';
 const MOUSE_WHEEL_ZOOM_INVERTED = root?.dataset?.wheelzoominvert === '1';
+const SINGLE_CLICK_EDIT = root?.dataset?.singleclickedit === '1';
 const ZOOM_STEP = 0.1;
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3.0;
@@ -384,14 +385,16 @@ const enterEditMode = (cell, mode) => {
   cell.classList.add('editing');
   cell.contentEditable = 'true';
   cell.focus();
-  // In detail mode, place caret
-  if (mode === 'detail') {
-    const range = document.createRange();
-    range.selectNodeContents(cell);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
+  // Place caret at end of content (deferred to avoid browser overriding)
+  if (mode === 'quick' || mode === 'detail') {
+    setTimeout(() => {
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    }, 0);
   }
 };
 
@@ -523,6 +526,7 @@ document.addEventListener('mouseup', e => {
       selectCell(startCell, true);
     } else {
       selectCell(startCell, false);
+      if (SINGLE_CLICK_EDIT) enterEditMode(startCell, 'quick');
     }
   } else if (mouseDownPos && isDragging) {
     const a = startCell;
