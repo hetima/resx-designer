@@ -83,7 +83,7 @@
     ],
     "configuration": {
       "type": "object",
-      "title": "RESX Editor Configuration",
+      "title": "resx-designer",
       "properties": {
         "resx.enabled": {
           "type": "boolean",

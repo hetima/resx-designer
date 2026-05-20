@@ -59,11 +59,8 @@ class ResxEditorController {
 
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
 
-    // Restore view mode from persisted global state
-    const persistedMode = this.context.globalState.get<string>('resx.viewMode');
-    if (persistedMode === 'single' || persistedMode === 'multi') {
-      this.viewMode = persistedMode;
-    }
+    // Always start in single mode (multi is a session-only toggle).
+    this.viewMode = 'single';
 
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -638,9 +635,6 @@ class ResxEditorController {
     }
 
     this.viewMode = mode;
-
-    // Persist view mode
-    this.context.globalState.update('resx.viewMode', mode);
 
     this.updateWebviewContent();
   }
