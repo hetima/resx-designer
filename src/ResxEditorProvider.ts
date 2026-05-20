@@ -651,10 +651,31 @@ class ResxEditorController {
   private async writeResxFile(doc: ResxDocument): Promise<void> {
     const xml = serializeResx(doc);
     const uri = vscode.Uri.file(doc.path);
-    this.lastWrittenUris.add(uri.toString());
-    await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
-    // Clear after a short delay to allow onDidChangeTextDocument to see it
-    setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
+
+    // If this is the currently-open backing document, use workspace.applyEdit
+    // so that VS Code tracks dirty state, timeline entries, and fires onDidSaveTextDocument.
+    if (doc.locale === this.currentLocale && uri.toString() === this.document.uri.toString()) {
+      const fullRange = new vscode.Range(
+        this.document.positionAt(0),
+        this.document.positionAt(this.document.getText().length)
+      );
+      this.isUpdating = true;
+      try {
+        const wsEdit = new vscode.WorkspaceEdit();
+        wsEdit.replace(this.document.uri, fullRange, xml);
+        const success = await vscode.workspace.applyEdit(wsEdit);
+        if (!success) {
+          await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
+        }
+      } finally {
+        this.isUpdating = false;
+      }
+    } else {
+      // Other locale file — write directly to disk
+      this.lastWrittenUris.add(uri.toString());
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
+      setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
+    }
   }
 
   private async reloadAndRefresh(): Promise<void> {

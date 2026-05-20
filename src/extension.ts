@@ -2,9 +2,12 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { registerResxCommands } from './commands';
+import { parseResx } from './resx-parser';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('RESX: Extension activated');
+
+  const extensionVersion = context.extension.packageJSON.version as string;
 
   // Commands
   registerResxCommands(context);
@@ -88,44 +91,212 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(cfgListener);
 
-  // ── Auto-generate Designer.test.cs on .resx save ──────────────────
+  // ── Auto-generate Designer.cs on .resx save ──────────────────────
   const saveListener = vscode.workspace.onDidSaveTextDocument(async (doc) => {
     const config = vscode.workspace.getConfiguration('resx', doc.uri);
     const inspected = config.inspect<string>('defaultResx');
-    // Only trigger when the user has explicitly set the value (workspace/folder/global)
     if (!inspected?.workspaceFolderValue && !inspected?.workspaceValue
       && !inspected?.globalValue && !inspected?.globalLanguageValue
       && !inspected?.workspaceLanguageValue && !inspected?.workspaceFolderLanguageValue) {
       return;
     }
     const defaultResx = config.get<string>('defaultResx')!;
-    // Empty string means generation is disabled
     if (!defaultResx) { return; }
 
-    // Only trigger for files matching the configured default resx
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(doc.uri);
-    const relativePath = workspaceFolder
-      ? path.relative(workspaceFolder.uri.fsPath, doc.uri.fsPath).replace(/\\/g, '/')
+    const wsFolder = vscode.workspace.getWorkspaceFolder(doc.uri);
+    const relativePath = wsFolder
+      ? path.relative(wsFolder.uri.fsPath, doc.uri.fsPath).replace(/\\/g, '/')
       : path.basename(doc.uri.fsPath);
     if (relativePath !== defaultResx) { return; }
 
-    const stem = path.basename(doc.uri.fsPath, '.resx');
-    const outputPath = path.join(path.dirname(doc.uri.fsPath), `${stem}.Designer.test.cs`);
-
-    const content = `// Generated at ${new Date().toISOString()}`;
-
-    try {
-      await vscode.workspace.fs.writeFile(
-        vscode.Uri.file(outputPath),
-        Buffer.from(content, 'utf8')
-      );
-      vscode.window.showInformationMessage(`RESX: Generated ${path.basename(outputPath)}`);
-    } catch (e) {
-      vscode.window.showErrorMessage(`RESX: Failed to generate ${path.basename(outputPath)}: ${e}`);
-    }
+    await regenerateDesignerCs(doc, wsFolder, config, extensionVersion);
   });
 
   context.subscriptions.push(saveListener);
+}
+
+// ── Designer.cs Generation ─────────────────────────────────────────
+
+async function regenerateDesignerCs(
+  doc: vscode.TextDocument,
+  wsFolder: vscode.WorkspaceFolder | undefined,
+  config: vscode.WorkspaceConfiguration,
+  extensionVersion: string,
+): Promise<void> {
+  try {
+    const stem = path.basename(doc.uri.fsPath, '.resx');
+    const resxDir = path.dirname(doc.uri.fsPath);
+    const outputPath = path.join(resxDir, `${stem}.Designer.cs`);
+    const outputUri = vscode.Uri.file(outputPath);
+
+    // 1. Read resx names
+    const resxDoc = parseResx(doc.getText(), doc.uri.fsPath);
+    const resxNames = resxDoc.entries.map(e => e.name).sort();
+
+    // 2. Read existing Designer.cs if present
+    let existingNames: string[] = [];
+    let existingRootNs = '';
+    let existingSecondNs = '';
+    try {
+      const bytes = await vscode.workspace.fs.readFile(outputUri);
+      const text = new TextDecoder('utf-8').decode(bytes);
+      existingNames = [...text.matchAll(/internal\s+static\s+string\s+(\w+)/g)].map(m => m[1]).sort();
+      const nsMatch = text.match(/^namespace\s+([\S]+)/m);
+      if (nsMatch) { existingRootNs = nsMatch[1]; }
+      const rmMatch = text.match(/new\s+global::System\.Resources\.ResourceManager\("([^"]+)"/);
+      if (rmMatch) { existingSecondNs = rmMatch[1]; }
+    } catch {
+      // File does not exist yet — that's fine
+    }
+
+    // 3. Compare — skip if identical
+    if (existingNames.length > 0 && arraysEqual(existingNames, resxNames)) {
+      return; // No changes needed
+    }
+
+    // 4. Determine namespaces
+    const rootNs = determineRootNamespace(existingRootNs, config, doc.uri, wsFolder, stem);
+    const secondNs = determineSecondNamespace(existingSecondNs, config, doc.uri, wsFolder, stem);
+
+    // 5. Generate content
+    const content = generateDesignerCsContent(stem, rootNs, secondNs, resxNames, extensionVersion);
+
+    // 6. Write
+    await vscode.workspace.fs.writeFile(outputUri, new TextEncoder().encode(content));
+    vscode.window.showInformationMessage(`RESX: Generated ${path.basename(outputPath)}`);
+  } catch (e) {
+    vscode.window.showErrorMessage(`RESX: Failed to generate Designer.cs: ${e}`);
+  }
+}
+
+function arraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) { return false; }
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) { return false; }
+  }
+  return true;
+}
+
+function determineRootNamespace(
+  existing: string,
+  config: vscode.WorkspaceConfiguration,
+  docUri: vscode.Uri,
+  wsFolder: vscode.WorkspaceFolder | undefined,
+  stem: string,
+): string {
+  if (existing) { return existing; }
+  const cfgNs = config.get<string>('defaultNamespace', '');
+  if (cfgNs) { return cfgNs; }
+  if (wsFolder) {
+    const relDir = path.relative(wsFolder.uri.fsPath, path.dirname(docUri.fsPath)).replace(/\\/g, '/');
+    if (relDir) {
+      // e.g. "Resources" → "Resources.Strings"
+      return `${toPascalCase(relDir)}.${stem}`;
+    }
+    // File is at workspace root
+    return stem;
+  }
+  return stem;
+}
+
+function determineSecondNamespace(
+  existing: string,
+  config: vscode.WorkspaceConfiguration,
+  docUri: vscode.Uri,
+  wsFolder: vscode.WorkspaceFolder | undefined,
+  stem: string,
+): string {
+  if (existing) { return existing; }
+  const cfgNs = config.get<string>('defaultNamespace', '');
+  if (cfgNs) {
+    const relDir = wsFolder
+      ? path.relative(wsFolder.uri.fsPath, path.dirname(docUri.fsPath)).replace(/\\/g, '/')
+      : '';
+    if (relDir) {
+      return `${cfgNs}.${toPascalCase(relDir)}.${stem}`;
+    }
+    return `${cfgNs}.${stem}`;
+  }
+  if (wsFolder) {
+    const relDir = path.relative(wsFolder.uri.fsPath, path.dirname(docUri.fsPath)).replace(/\\/g, '/');
+    const wsName = path.basename(wsFolder.uri.fsPath);
+    if (relDir) {
+      return `${toPascalCase(relDir)}.${stem}`;
+    }
+    return stem;
+  }
+  return stem;
+}
+
+function toPascalCase(s: string): string {
+  return s.split(/[/\\]/).map(seg => {
+    // Convert kebab-case or snake_case segments
+    return seg.split(/[-_]/).map(part =>
+      part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+    ).join('');
+  }).join('.');
+}
+
+function generateDesignerCsContent(
+  stem: string,
+  rootNs: string,
+  secondNs: string,
+  names: string[],
+  version: string,
+): string {
+  const eol = '\r\n';
+  const lines: string[] = [
+    `namespace ${rootNs} {`,
+    `    using System;`,
+    `    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("hetima.resx-designer", "${version}")]`,
+    `    [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]`,
+    `    [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]`,
+    `    public class ${stem} {`,
+    ``,
+    `        private static global::System.Resources.ResourceManager resourceMan;`,
+    ``,
+    `        private static global::System.Globalization.CultureInfo resourceCulture;`,
+    ``,
+    `        [global::System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode")]`,
+    `        internal ${stem}() {`,
+    `        }`,
+    ``,
+    `        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]`,
+    `        public static global::System.Resources.ResourceManager ResourceManager {`,
+    `            get {`,
+    `                if (object.ReferenceEquals(resourceMan, null)) {`,
+    `                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("${secondNs}", typeof(${stem}).Assembly);`,
+    `                    resourceMan = temp;`,
+    `                }`,
+    `                return resourceMan;`,
+    `            }`,
+    `        }`,
+    ``,
+    `        [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]`,
+    `        public static global::System.Globalization.CultureInfo Culture {`,
+    `            get {`,
+    `                return resourceCulture;`,
+    `            }`,
+    `            set {`,
+    `                resourceCulture = value;`,
+    `            }`,
+    `        }`,
+  ];
+
+  for (const name of names) {
+    lines.push('');
+    lines.push(`        internal static string ${name} {`);
+    lines.push(`            get {`);
+    lines.push(`                return ResourceManager.GetString("${name}", resourceCulture);`);
+    lines.push(`            }`);
+    lines.push(`        }`);
+  }
+
+  lines.push('');
+  lines.push('    }');
+  lines.push('}');
+
+  return lines.join(eol) + eol;
 }
 
 export function deactivate() {}
