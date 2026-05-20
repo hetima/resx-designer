@@ -348,8 +348,14 @@ class ResxEditorController {
         await this.renameKeyAcrossAllLocales(oldName, value);
         this.gridRows[row].name = value;
       } else if (column.kind === 'comment') {
-        // Update comment across all locale files
-        await this.updateCommentAcrossAllLocales(this.gridRows[row].name, value);
+        if (this.viewMode === 'multi') {
+          // Multi mode: update comment in default locale file only
+          await this.updateCommentSingleLocale(this.gridRows[row].name, value, null);
+        } else {
+          // Single mode: update comment in the currently open file only
+          const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
+          await this.updateCommentSingleLocale(this.gridRows[row].name, value, currentLocale);
+        }
         this.gridRows[row].comment = value;
       } else if (column.kind === 'locale') {
         // Update value in the specific locale file
@@ -473,6 +479,19 @@ class ResxEditorController {
       }
       await this.writeResxFile(doc);
     }
+  }
+
+  private async updateCommentSingleLocale(keyName: string, comment: string, targetLocale: string | null): Promise<void> {
+    if (!this.localeSet) { return; }
+    const doc = this.localeSet.locales.get(targetLocale);
+    if (!doc) { return; }
+    const entry = doc.entries.find(e => e.name === keyName);
+    if (entry) {
+      entry.comment = comment;
+    } else {
+      doc.entries.push({ name: keyName, value: '', comment });
+    }
+    await this.writeResxFile(doc);
   }
 
   private handleSortRows(ascending: boolean): void {
@@ -862,6 +881,10 @@ class ResxEditorController {
 
   private generateTableHtml(isDark: boolean, addSerialIndex: boolean): string {
     const visibleColumns = this.getVisibleColumns();
+    const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
+    const isDefaultFile = currentLocale === null;
+    // In single mode, lock name and default locale columns unless the open file IS the default
+    const lockNameAndDefault = this.viewMode === 'single' && !isDefaultFile;
     let html = '<table>';
 
     // Header row
@@ -875,11 +898,11 @@ class ResxEditorController {
           html += `<th class="index-col" style="display:none;" data-col="${physIdx}"></th>`;
         }
       } else if (vc.kind === 'name') {
-        html += `<th class="name-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
+        html += `<th class="name-col" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}>${this.escapeHtml(vc.label)}</th>`;
       } else if (vc.kind === 'comment') {
         html += `<th class="comment-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
       } else if (vc.kind === 'locale') {
-        html += `<th class="locale-header value-col" data-col="${physIdx}">${this.escapeHtml(vc.label)}</th>`;
+        html += `<th class="locale-header value-col" data-col="${physIdx}"${(lockNameAndDefault && vc.locale === null) ? ' data-readonly' : ''}>${this.escapeHtml(vc.label)}</th>`;
       }
     }
     html += '</tr></thead>';
@@ -899,7 +922,7 @@ class ResxEditorController {
             html += `<td class="index-col" style="display:none;" data-row="${r}" data-col="${physIdx}"></td>`;
           }
         } else if (vc.kind === 'name') {
-          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.name)}</td>`;
+          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}>${this.escapeHtml(row.name)}</td>`;
         } else if (vc.kind === 'comment') {
           html += `<td class="comment-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.comment)}</td>`;
         } else if (vc.kind === 'locale') {
@@ -908,7 +931,7 @@ class ResxEditorController {
           const missingClass = this.getMissingCellStyle(r, vc);
           const titleAttr = (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0)
             ? ` title="${this.escapeHtml(value)}"` : '';
-          html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${physIdx}"${titleAttr}>${valueSafe}</td>`;
+          html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${physIdx}"${titleAttr}${(lockNameAndDefault && vc.locale === null) ? ' data-readonly' : ''}>${valueSafe}</td>`;
         }
       }
 
@@ -926,7 +949,7 @@ class ResxEditorController {
           html += `<td style="display:none;" data-row="${vRow}" data-col="${physIdx}"></td>`;
         }
       } else if (vc.kind === 'name') {
-        html += `<td class="name-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
+        html += `<td class="name-col" data-row="${vRow}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}></td>`;
       } else if (vc.kind === 'comment') {
         html += `<td class="comment-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
       } else if (vc.kind === 'locale') {

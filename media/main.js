@@ -383,6 +383,7 @@ const enterEditMode = (cell, mode) => {
   if (!cell) return;
   const { row, col } = getCellCoords(cell);
   if (isRowIndexCell(cell) || isColumnHeaderCell(cell)) return;
+  if (cell.hasAttribute('data-readonly')) return;
 
   if (editingCell && editingCell !== cell) commitEdit();
 
