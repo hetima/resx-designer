@@ -5,6 +5,7 @@ import {
 } from './types/resx';
 import { findRelatedResxFiles, getSortedLocales } from './resx-locale-finder';
 import { serializeResx } from './resx-writer';
+import { getThemeCssVariables } from './theme-colors';
 
 // ─────────────────────────────────────────────────────────────────────
 // BulkEditController — manages one bulk-edit webview + its state
@@ -178,16 +179,8 @@ class BulkEditController implements vscode.Disposable {
     const fontFamily = config.get<string>('fontFamily', '');
     const fontSize = config.get<number>('fontSize', 0);
     const cellPadding = config.get<number>('cellPadding', 4);
-    const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+    const themeVars = getThemeCssVariables();
 
-    const bg = isDark ? '#1e1e1e' : '#ffffff';
-    const fg = isDark ? '#cccccc' : '#333333';
-    const border = isDark ? '#555555' : '#cccccc';
-    const headerBg = isDark ? '#252526' : '#f0f0f0';
-    const accent = '#007acc';
-    const focusOutline = isDark ? '#007fd4' : '#007acc';
-
-    const rootBg = isDark ? '#1e1e1e' : '#ffffff';
     const fontStr = fontFamily
       ? `${fontFamily}, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`
       : "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
@@ -207,22 +200,23 @@ class BulkEditController implements vscode.Disposable {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}' ${this.webviewPanel.webview.cspSource};">
   <style>
+    :root {
+      ${themeVars}    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: ${fontStr};
       font-size: ${fontSizeStr};
-      background: ${rootBg};
-      color: ${fg};
+      background: var(--resx-body);
+      color: var(--resx-fg);
       padding: 16px;
     }
     h2 {
       font-size: 1.2em;
       font-weight: 600;
       margin-bottom: 12px;
-      color: ${fg};
+      color: var(--resx-fg);
     }
     h2 .name {
-      color: ${accent};
       font-family: Consolas, 'Courier New', monospace;
     }
     table {
@@ -231,14 +225,14 @@ class BulkEditController implements vscode.Disposable {
     }
     th, td {
       padding: ${cellPadding}px 12px;
-      border: 1px solid ${border};
+      border: 1px solid var(--resx-border);
       font-size: inherit;
       vertical-align: top;
     }
     th {
       position: sticky;
       top: 0;
-      background: ${headerBg};
+      background: var(--resx-header-bg);
       text-align: left;
       font-weight: 600;
       user-select: none;
@@ -246,7 +240,7 @@ class BulkEditController implements vscode.Disposable {
     }
     th.locale-col { width: 120px; }
     td.locale-col {
-      background: ${headerBg};
+      background: var(--resx-header-bg);
       font-weight: 500;
       user-select: none;
     }
@@ -260,11 +254,11 @@ class BulkEditController implements vscode.Disposable {
       max-height: 200px;
     }
     td.value-col:focus {
-      outline: 2px solid ${focusOutline};
+      outline: 2px solid var(--resx-focus-border);
       outline-offset: -2px;
     }
     td.value-col.missing {
-      background: ${isDark ? 'rgba(255,100,100,0.1)' : 'rgba(255,0,0,0.05)'};
+      background: var(--resx-missing-bg);
     }
     td.value-col.empty {
       opacity: 0.5;
@@ -272,7 +266,7 @@ class BulkEditController implements vscode.Disposable {
   </style>
 </head>
 <body>
-  <h2>Editing <span class="name">${this.escapeHtml(this.metadata.keyName)}</span></h2>
+  <h2><span class="name">${this.escapeHtml(this.metadata.keyName)}</span></h2>
   <table>
     <thead>
       <tr>
@@ -355,10 +349,12 @@ class BulkEditController implements vscode.Disposable {
         return;
       }
       if (e.key === 'Escape') {
+        // Revert this cell to the last committed value, then blur
         const idx = parseInt(cell.dataset.idx, 10);
-        cell.textContent = renderRows ? '' : '';
+        cell.textContent = localeData[idx].value;
+        cell.classList.toggle('empty', localeData[idx].value === '');
+        cell.classList.toggle('missing', localeData[idx].value === '');
         cell.blur();
-        // Re-render will restore original values
         return;
       }
     });

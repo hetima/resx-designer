@@ -8,6 +8,7 @@ import { parseResx, encodeXmlEntities } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, getSortedLocales, parseResxFilename } from './resx-locale-finder';
 import { openBulkEditPanel } from './bulk-edit-panel';
+import { getThemeCssVariables } from './theme-colors';
 
 // ─────────────────────────────────────────────────────────────────────
 // ResxEditorController — manages one webview + one locale set.
@@ -111,6 +112,20 @@ class ResxEditorController {
         ResxEditorProvider.currentActive = this;
         this.updateWebviewContent();
       }
+    });
+
+    // Re-render when the color theme changes so CSS variables stay in sync
+    const colorThemeSub = vscode.window.onDidChangeActiveColorTheme(() => {
+      this.updateWebviewContent();
+    });
+
+    webviewPanel.onDidDispose(() => {
+      changeSub.dispose();
+      colorThemeSub.dispose();
+      for (const w of this.fileWatchers) { w.dispose(); }
+      this.fileWatchers = [];
+      ResxEditorProvider.editors = ResxEditorProvider.editors.filter(ed => ed !== this);
+      this.currentWebviewPanel = undefined;
     });
   }
 
@@ -561,6 +576,29 @@ class ResxEditorController {
     this.updateWebviewContent();
   }
 
+  // ── Editability helpers ──────────────────────────────────────────
+
+  /** Returns true if the cell at the given physical column index is user-editable. */
+  private isCellEditable(physCol: number): boolean {
+    const column = this.columns[physCol];
+    if (!column) { return false; }
+
+    // Index column is always read-only
+    if (column.kind === 'index') { return false; }
+
+    // Multi mode: everything except index is editable
+    if (this.viewMode === 'multi') { return true; }
+
+    // Single mode + default file: all non-index cells editable
+    if (this.currentLocale === null) { return true; }
+
+    // Single mode + non-default file: lock name and default locale columns
+    if (column.kind === 'name') { return false; }
+    if (column.kind === 'locale' && column.locale === null) { return false; }
+
+    return true;
+  }
+
   private async handleFindMatches(
     requestId: number,
     query: string,
@@ -597,6 +635,7 @@ class ResxEditorController {
         }))
       ];
       for (const cell of cellValues) {
+        if (!this.isCellEditable(cell.col)) { continue; }
         regex.lastIndex = 0;
         if (regex.test(cell.value)) {
           matches.push({ row: r, col: cell.col, value: cell.value });
@@ -616,6 +655,7 @@ class ResxEditorController {
     if (!replacements.length) { return; }
 
     for (const repl of replacements) {
+      if (!this.isCellEditable(repl.col)) { continue; }
       await this.handleEditCell(repl.row, repl.col, repl.value);
     }
 
@@ -758,10 +798,10 @@ class ResxEditorController {
     const singleClickEdit = config.get<boolean>('singleClickEdit', false);
     const addSerialIndex = config.get<boolean>('showSerialIndex', true);
 
-    const isDark = vscode.window.activeColorTheme.kind === vscode.ColorThemeKind.Dark;
+    const themeVars = getThemeCssVariables();
 
     // Generate table HTML
-    const tableHtml = this.generateTableHtml(isDark, addSerialIndex);
+    const tableHtml = this.generateTableHtml(addSerialIndex);
 
     const nonce = this.getNonce();
     const scriptUri = webview.asWebviewUri(
@@ -785,61 +825,64 @@ class ResxEditorController {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RESX</title>
     <style nonce="${nonce}">
+      :root {
+    ${themeVars}
+      }
       body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 0; user-select: none; }
       .table-container { overflow: auto; height: calc(100vh - 33px); }
       table { border-collapse: collapse; width: max-content; }
-      th, td { padding: ${cellPadding}px 8px; border: 1px solid ${isDark ? '#555' : '#ccc'}; font-size: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      th { position: sticky; top: 0; background-color: ${isDark ? '#1e1e1e' : '#ffffff'}; z-index: 10; user-select: none; }
+      th, td { padding: ${cellPadding}px 8px; border: 1px solid var(--resx-border); font-size: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      th { position: sticky; top: 0; background-color: var(--resx-body); z-index: 10; user-select: none; }
       td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
       td:hover { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; }
-      td.selected, th.selected { background-color: ${isDark ? '#333333' : '#cce0ff'} !important; }
+      td.selected, th.selected { background-color: var(--resx-selected-bg) !important; }
       td.editing, th.editing { overflow: visible !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; max-width: none !important; }
-      .highlight { background-color: ${isDark ? '#2a2a2a' : '#fefefe'} !important; }
-      .active-match { background-color: ${isDark ? '#444444' : '#ffffcc'} !important; }
-      td.missing-translation { background-color: ${isDark ? '#3a2a2a' : '#fff3e0'} !important; }
-      td.missing-translation.selected { background-color: ${isDark ? '#4a3a3a' : '#ffe0b2'} !important; }
+      .highlight { background-color: var(--resx-highlight-bg) !important; }
+      .active-match { background-color: var(--resx-active-match-bg) !important; }
+      td.missing-translation { background-color: var(--resx-missing-bg) !important; }
+      td.missing-translation.selected { background-color: var(--resx-missing-selected-bg) !important; }
       .locale-header { cursor: default; }
       .name-col { min-width: 60px; width: 120px; max-width: 120px; }
       .value-col { min-width: 80px; width: 160px; max-width: 180px; }
-      .index-col { min-width: 40px; max-width: 50px; color: #888; text-align: right; }
+      .index-col { min-width: 40px; max-width: 50px; color: var(--resx-index-fg); text-align: right; }
       .comment-col { min-width: 60px; width: 120px; max-width: 120px; }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
-        background: #171717; border: 1px solid #2a2a2a; border-radius: 8px; padding: 10px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.45); z-index: 1200; display: none; align-items: stretch;
-        color: #d4d4d4; font-family: ${this.escapeCss(fontFamily)}; font-size: inherit;
+        background: var(--fr-bg); border: 1px solid var(--fr-border); border-radius: 8px; padding: 10px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.25); z-index: 1200; display: none; align-items: stretch;
+        color: var(--fr-fg); font-family: ${this.escapeCss(fontFamily)}; font-size: inherit;
       }
       #findReplaceWidget.open { display: flex; }
-      #findReplaceWidget .fr-gutter { width: 24px; min-width: 24px; border-radius: 6px; background: #2a2b2b; border-right: 1px solid #1f1f1f; margin-right: 10px; display: flex; align-items: center; justify-content: center; }
+      #findReplaceWidget .fr-gutter { width: 24px; min-width: 24px; border-radius: 6px; background: var(--fr-gutter-bg); border-right: 1px solid var(--fr-gutter-border); margin-right: 10px; display: flex; align-items: center; justify-content: center; }
       #findReplaceWidget .fr-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
       #findReplaceWidget.replace-collapsed .fr-row-replace { display: none; }
       #findReplaceWidget .fr-row { display: flex; align-items: center; gap: 8px; }
       #findReplaceWidget .fr-row-find .fr-input-wrap { flex: 0 0 calc(25ch + 118px); width: calc(25ch + 118px); }
       #findReplaceWidget .fr-row-replace .fr-input-wrap { flex: 0 0 calc(25ch + 54px); width: calc(25ch + 54px); }
       #findReplaceWidget .fr-input-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
-      #findReplaceWidget .fr-input { width: 100%; height: 36px; box-sizing: border-box; border: 1px solid #2a2a2a; border-radius: 6px; background: #1c1c1c; color: #d4d4d4; padding-left: 10px; font-size: inherit; outline: none; }
-      #findReplaceWidget .fr-input::placeholder { color: #6a6a6a; }
-      #findReplaceWidget .fr-input:focus { border-color: #3a3a3a; box-shadow: 0 0 0 2px rgba(255,255,255,0.06); }
+      #findReplaceWidget .fr-input { width: 100%; height: 36px; box-sizing: border-box; border: 1px solid var(--fr-input-border); border-radius: 6px; background: var(--fr-input-bg); color: var(--fr-input-fg); padding-left: 10px; font-size: inherit; outline: none; }
+      #findReplaceWidget .fr-input::placeholder { color: var(--fr-input-placeholder); }
+      #findReplaceWidget .fr-input:focus { border-color: var(--fr-input-focus-border); box-shadow: var(--fr-input-focus-shadow); }
       #findInput { padding-right: 118px; }
       #replaceInput { padding-right: 54px; }
-      #findReplaceWidget .fr-inline-toggles { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; padding-left: 6px; border-left: 1px solid rgba(42,42,42,0.75); }
-      #findReplaceWidget .fr-toggle-btn { min-width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: rgba(189,189,189,0.8); font-size: 0.86em; cursor: pointer; padding: 0 4px; }
-      #findReplaceWidget .fr-toggle-btn:hover { background: rgba(255,255,255,0.04); color: #e6e6e6; }
-      #findReplaceWidget .fr-toggle-btn[aria-pressed="true"] { color: #e6e6e6; box-shadow: inset 0 -2px 0 #e6e6e6; }
-      #findReplaceWidget .fr-status { min-width: 84px; text-align: right; color: #d0d0d0; font-size: inherit; }
-      #findReplaceWidget .fr-divider { width: 1px; height: 22px; background: #2a2a2a; }
-      #findReplaceWidget .fr-icon-btn, #findReplaceWidget .fr-action-btn, #findReplaceWidget .fr-caret-btn { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: #bdbdbd; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-      #findReplaceWidget .fr-icon-btn:hover, #findReplaceWidget .fr-action-btn:hover, #findReplaceWidget .fr-caret-btn:hover { background: rgba(255,255,255,0.05); color: #e6e6e6; }
-      #findReplaceWidget .fr-icon-btn[disabled], #findReplaceWidget .fr-action-btn[disabled] { color: #6a6a6a; cursor: default; pointer-events: none; }
-      #findReplaceWidget .fr-close-btn:hover { background: rgba(255,255,255,0.08); color: #ffffff; }
+      #findReplaceWidget .fr-inline-toggles { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; padding-left: 6px; border-left: 1px solid var(--fr-divider-separator); }
+      #findReplaceWidget .fr-toggle-btn { min-width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: var(--fr-btn-fg); font-size: 0.86em; cursor: pointer; padding: 0 4px; }
+      #findReplaceWidget .fr-toggle-btn:hover { background: var(--fr-btn-hover-bg); color: var(--fr-toggle-active-color); }
+      #findReplaceWidget .fr-toggle-btn[aria-pressed="true"] { color: var(--fr-toggle-active-color); box-shadow: inset 0 -2px 0 var(--fr-toggle-active-color); }
+      #findReplaceWidget .fr-status { min-width: 84px; text-align: right; color: var(--fr-status-fg); font-size: inherit; }
+      #findReplaceWidget .fr-divider { width: 1px; height: 22px; background: var(--fr-divider); }
+      #findReplaceWidget .fr-icon-btn, #findReplaceWidget .fr-action-btn, #findReplaceWidget .fr-caret-btn { width: 28px; height: 28px; border: 1px solid transparent; border-radius: 4px; background: transparent; color: var(--fr-btn-fg); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+      #findReplaceWidget .fr-icon-btn:hover, #findReplaceWidget .fr-action-btn:hover, #findReplaceWidget .fr-caret-btn:hover { background: var(--fr-btn-hover-bg); color: var(--fr-toggle-active-color); }
+      #findReplaceWidget .fr-icon-btn[disabled], #findReplaceWidget .fr-action-btn[disabled] { opacity: 0.5; cursor: default; pointer-events: none; }
+      #findReplaceWidget .fr-close-btn:hover { background: var(--fr-close-hover-bg); color: var(--fr-close-hover-fg); }
       #findReplaceWidget .fr-actions { display: flex; align-items: center; gap: 8px; }
-      #findReplaceWidget .fr-overflow-menu { position: absolute; top: 48px; right: 44px; min-width: 200px; background: #202020; border: 1px solid #2f2f2f; border-radius: 6px; box-shadow: 0 10px 24px rgba(0,0,0,0.45); padding: 4px; display: none; }
+      #findReplaceWidget .fr-overflow-menu { position: absolute; top: 48px; right: 44px; min-width: 200px; background: var(--fr-overflow-bg); border: 1px solid var(--fr-overflow-border); border-radius: 6px; box-shadow: 0 10px 24px rgba(0,0,0,0.25); padding: 4px; display: none; }
       #findReplaceWidget .fr-overflow-menu.open { display: block; }
-      #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: #d4d4d4; border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
-      #findReplaceWidget .fr-overflow-item:hover { background: rgba(255,255,255,0.05); }
-      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: ${isDark ? '#252526' : '#f3f3f3'}; border-bottom: 1px solid ${isDark ? '#3e3e3e' : '#ddd'}; }
-      #toolbar button { padding: 2px 10px; border: 1px solid ${isDark ? '#555' : '#bbb'}; border-radius: 3px; background: ${isDark ? '#3c3c3c' : '#ffffff'}; color: ${isDark ? '#ccc' : '#333'}; font-size: 12px; cursor: pointer; white-space: nowrap; }
-      #toolbar button:hover { background: ${isDark ? '#4c4c4c' : '#e8e8e8'}; }
+      #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: var(--fr-fg); border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
+      #findReplaceWidget .fr-overflow-item:hover { background: var(--fr-btn-hover-bg); }
+      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); }
+      #toolbar button { padding: 2px 10px; border: 1px solid var(--resx-btn-border); border-radius: 3px; background: var(--resx-btn-bg); color: var(--resx-btn-fg); font-size: 12px; cursor: pointer; white-space: nowrap; }
+      #toolbar button:hover { background: var(--resx-btn-hover); }
     </style>
   </head>
   <body>
@@ -878,7 +921,6 @@ class ResxEditorController {
           <div class="fr-divider" aria-hidden="true"></div>
           <button id="findPrev" class="fr-icon-btn" type="button" aria-label="Previous Match" title="Previous Match" disabled>↑</button>
           <button id="findNext" class="fr-icon-btn" type="button" aria-label="Next Match" title="Next Match" disabled>↓</button>
-          <button id="findMenuButton" class="fr-icon-btn" type="button" aria-label="More Find Options" title="More Find Options">☰</button>
           <button id="findClose" class="fr-icon-btn fr-close-btn" type="button" aria-label="Close Find and Replace" title="Close">✕</button>
         </div>
         <div class="fr-row fr-row-replace">
@@ -905,7 +947,7 @@ class ResxEditorController {
 </html>`;
   }
 
-  private generateTableHtml(isDark: boolean, addSerialIndex: boolean): string {
+  private generateTableHtml(addSerialIndex: boolean): string {
     const visibleColumns = this.getVisibleColumns();
     const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
     const isDefaultFile = currentLocale === null;
