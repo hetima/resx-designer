@@ -939,11 +939,15 @@ class ResxEditorController {
     }
     html += '</tr></thead>';
 
+    // Helper: build a safe data-vscode-context attribute value
+    const ctx = (obj: Record<string, unknown>) =>
+      ` data-vscode-context="${JSON.stringify(obj).replace(/"/g, '&quot;')}"`;
+
     // Body rows
     html += '<tbody>';
     for (let r = 0; r < this.gridRows.length; r++) {
       const row = this.gridRows[r];
-      html += '<tr>';
+      html += `<tr${ctx({ webviewSection: 'resxrow', name: row.name })}>`;
 
       for (const vc of visibleColumns) {
         const physIdx = vc.physicalIndex;
@@ -954,7 +958,7 @@ class ResxEditorController {
             html += `<td class="index-col" style="display:none;" data-row="${r}" data-col="${physIdx}"></td>`;
           }
         } else if (vc.kind === 'name') {
-          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}>${this.escapeHtml(row.name)}</td>`;
+          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}}>${this.escapeHtml(row.name)}</td>`;
         } else if (vc.kind === 'comment') {
           html += `<td class="comment-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.comment)}</td>`;
         } else if (vc.kind === 'locale') {
@@ -963,7 +967,7 @@ class ResxEditorController {
           const missingClass = this.getMissingCellStyle(r, vc);
           const titleAttr = (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0)
             ? ` title="${this.escapeHtml(value)}"` : '';
-          html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${physIdx}"${titleAttr}${(lockNameAndDefault && vc.locale === null) ? ' data-readonly' : ''}>${valueSafe}</td>`;
+          html += `<td class="value-col${missingClass}" data-row="${r}" data-col="${physIdx}"${titleAttr}${lockNameAndDefault && vc.locale === null ? " data-readonly" : ""}>${valueSafe}</td>`;
         }
       }
 

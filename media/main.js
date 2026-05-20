@@ -419,19 +419,19 @@ table?.addEventListener('mousedown', e => {
 });
 
 // Right-click: send context cell info to host so VSCode context menu commands can use it
-table?.addEventListener('contextmenu', e => {
-  const cell = getCellTarget(e.target);
-  if (!cell) return;
-  selectCell(cell, false);
-  const { row, col } = getCellCoords(cell);
-  const isHeader = isColumnHeaderCell(cell);
-  const selectedRows = getSelectedRowIds();
-  const nameCell = table.querySelector(`td[data-row="${row}"].name-col`);
-  const name = nameCell ? (nameCell.textContent || '') : '';
-  vscode.postMessage({
-    type: 'setContextCell', row, col, isHeader, selectedRows, name
-  });
-});
+// table?.addEventListener('contextmenu', e => {
+//   const cell = getCellTarget(e.target);
+//   if (!cell) return;
+//   selectCell(cell, false);
+//   const { row, col } = getCellCoords(cell);
+//   const isHeader = isColumnHeaderCell(cell);
+//   const selectedRows = getSelectedRowIds();
+//   const nameCell = table.querySelector(`td[data-row="${row}"].name-col`);
+//   const name = nameCell ? (nameCell.textContent || '') : '';
+//   vscode.postMessage({
+//     type: 'setContextCell', row, col, isHeader, selectedRows, name
+//   });
+// });
 
 document.addEventListener('mousemove', e => {
   if (!mouseDownPos) return;

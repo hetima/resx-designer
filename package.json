@@ -74,6 +74,11 @@
         "command": "resx.deleteRows",
         "title": "Delete Row(s)",
         "icon": "$(trash)"
+      },
+      {
+        "command": "resx.bulkEdit",
+        "title": "Bulk Edit",
+        "icon": "$(split-horizontal)"
       }
     ],
     "configuration": {
@@ -173,13 +178,18 @@
       "webview/context": [
         {
           "command": "resx.addRowBelow",
-          "when": "activeWebviewPanelId == 'resx.editor'",
+          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
           "group": "1_edit@1"
         },
         {
           "command": "resx.deleteRows",
-          "when": "activeWebviewPanelId == 'resx.editor'",
+          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
           "group": "1_edit@2"
+        },
+        {
+          "command": "resx.bulkEdit",
+          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
+          "group": "1_edit@3"
         }
       ]
     }
