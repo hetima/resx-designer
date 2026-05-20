@@ -112,8 +112,8 @@ class ResxEditorController {
     webviewPanel.onDidChangeViewState(e => {
       if (e.webviewPanel.active) {
         ResxEditorProvider.currentActive = this;
+        this.updateWebviewContent();
       }
-      this.updateWebviewContent();
     });
   }
 
