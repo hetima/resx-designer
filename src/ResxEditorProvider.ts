@@ -23,6 +23,8 @@ class ResxEditorController {
   private fileWatchers: vscode.FileSystemWatcher[] = [];
   private highlightMissing = true;
   private viewMode: 'single' | 'multi' = 'single';
+  /** The locale of the currently-open document (null = default/culture-invariant). */
+  private currentLocale: string | null = null;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -32,6 +34,7 @@ class ResxEditorController {
     _token: vscode.CancellationToken
   ): Promise<void> {
     this.document = document;
+    this.currentLocale = parseResxFilename(path.basename(document.uri.fsPath)).locale ?? null;
     this.currentWebviewPanel = webviewPanel;
     ResxEditorProvider.editors.push(this);
 
