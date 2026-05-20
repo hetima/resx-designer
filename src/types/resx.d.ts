@@ -110,6 +110,13 @@ export interface WebviewAddLocaleMessage {
   fillDefaults: boolean;
 }
 
+/** Add a new resource key (row) by name */
+export interface WebviewAddKeyMessage {
+  type: 'addKey';
+  name: string;
+  addToAll: boolean;
+}
+
 /** Copy selected text to clipboard */
 export interface WebviewCopyMessage {
   type: 'copyToClipboard';
@@ -159,6 +166,7 @@ export type WebviewToHostMessage =
   | WebviewRenameKeyMessage
   | WebviewSortRowsMessage
   | WebviewAddLocaleMessage
+  | WebviewAddKeyMessage
   | WebviewCopyMessage
   | WebviewFindMessage
   | WebviewOpenAsTextMessage
@@ -177,7 +185,16 @@ export interface HostAddLocaleResultMessage {
   openUri?: string;
 }
 
-export type HostToWebviewMessage = HostAddLocaleResultMessage;
+/** Result of addKey operation */
+export interface HostAddKeyResultMessage {
+  type: 'addKeyResult';
+  success: boolean;
+  name: string;
+  message: string;
+  rowIndex: number;
+}
+
+export type HostToWebviewMessage = HostAddLocaleResultMessage | HostAddKeyResultMessage;
 
 // ── Bulk Edit Custom Editor ──────────────────────────────────────
 

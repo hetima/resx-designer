@@ -167,6 +167,10 @@ document.getElementById('addLangBtn')?.addEventListener('click', () => {
   try { window.__addLangDialog.open(); } catch {}
 });
 
+document.getElementById('addKeyBtn')?.addEventListener('click', () => {
+  try { window.__addKeyDialog.open(); } catch {}
+});
+
 document.getElementById('viewModeBtn')?.addEventListener('click', () => {
   const btn = document.getElementById('viewModeBtn');
   const isSingle = btn?.textContent?.includes('Multi');
@@ -221,8 +225,8 @@ document.getElementById('openAsTextBtn')?.addEventListener('click', () => {
         </label>
         <div id="addLangMessage" class="add-lang-message"></div>
         <div class="add-lang-buttons">
-          <button id="addLangOk" class="add-lang-btn">OK</button>
           <button id="addLangCancel" class="add-lang-btn">Cancel</button>
+          <button id="addLangOk" class="add-lang-btn">OK</button>
         </div>
       </div>
     `;
@@ -286,6 +290,76 @@ document.getElementById('openAsTextBtn')?.addEventListener('click', () => {
 
   // Expose close/result handler for the message listener
   window.__addLangDialog = { open: openDialog, close: () => { if (dialogEl) { dialogEl.remove(); dialogEl = null; } } };
+})();
+
+// ── Add Key dialog ─────────────────────────────────────────────
+
+(function initAddKeyDialog() {
+  let dialogEl = null;
+
+  function openDialog() {
+    if (dialogEl) { dialogEl.remove(); }
+
+    dialogEl = document.createElement('div');
+    dialogEl.className = 'add-lang-overlay';
+    dialogEl.innerHTML = `
+      <div class="add-lang-dialog">
+        <div class="add-lang-title">Add Key</div>
+        <div class="add-lang-field">
+          <input id="addKeyInput" class="add-lang-input" type="text"
+                 placeholder="Resource key name" spellcheck="false" autocomplete="off">
+        </div>
+        <label class="add-lang-checkbox-label">
+          <input id="addKeyAddToAll" type="checkbox" checked>
+          Add to all languages
+        </label>
+        <div id="addKeyMessage" class="add-lang-message"></div>
+        <div class="add-lang-buttons">
+          <button id="addKeyCancel" class="add-lang-btn">Cancel</button>
+          <button id="addKeyOk" class="add-lang-btn">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialogEl);
+
+    const input = document.getElementById('addKeyInput');
+    const msgEl = document.getElementById('addKeyMessage');
+    const okBtn = document.getElementById('addKeyOk');
+    const cancelBtn = document.getElementById('addKeyCancel');
+
+    msgEl.textContent = '';
+    input.focus();
+
+    function closeDialog() {
+      if (dialogEl) { dialogEl.remove(); dialogEl = null; }
+    }
+
+    cancelBtn.addEventListener('click', closeDialog);
+    dialogEl.addEventListener('click', (e) => {
+      if (e.target === dialogEl) closeDialog();
+    });
+
+    okBtn.addEventListener('click', () => {
+      const name = input.value.trim();
+      if (!name) {
+        msgEl.textContent = 'Key name is required.';
+        msgEl.classList.add('add-lang-error');
+        return;
+      }
+      const addToAll = document.getElementById('addKeyAddToAll').checked;
+      vscode.postMessage({ type: 'addKey', name, addToAll });
+      okBtn.disabled = true;
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') okBtn.click();
+      if (e.key === 'Escape') closeDialog();
+    });
+  }
+
+  // Expose close/result handler for the message listener
+  // Also expose open for scroll-after-reload
+  window.__addKeyDialog = { open: openDialog, close: () => { if (dialogEl) { dialogEl.remove(); dialogEl = null; } } };
 })();
 
 // End toolbar buttons ──────────────────────────────────────────────
@@ -1005,24 +1079,54 @@ window.addEventListener('message', event => {
       break;
     case 'addLocaleResult':
       if (msg.success) {
-        const msgEl = document.getElementById('addLangMessage');
-        if (msgEl) {
-          msgEl.textContent = msg.message;
-          msgEl.classList.remove('add-lang-error');
-          msgEl.classList.add('add-lang-success');
+        const langMsgEl = document.getElementById('addLangMessage');
+        if (langMsgEl) {
+          langMsgEl.textContent = msg.message;
+          langMsgEl.classList.remove('add-lang-error');
+          langMsgEl.classList.add('add-lang-success');
         }
         setTimeout(() => {
           try { window.__addLangDialog.close(); } catch {}
         }, 800);
       } else {
-        const msgEl = document.getElementById('addLangMessage');
-        if (msgEl) {
-          msgEl.textContent = msg.message;
-          msgEl.classList.remove('add-lang-success');
-          msgEl.classList.add('add-lang-error');
+        const langMsgEl = document.getElementById('addLangMessage');
+        if (langMsgEl) {
+          langMsgEl.textContent = msg.message;
+          langMsgEl.classList.remove('add-lang-success');
+          langMsgEl.classList.add('add-lang-error');
         }
-        const okBtn = document.getElementById('addLangOk');
-        if (okBtn) okBtn.disabled = false;
+        const langOkBtn = document.getElementById('addLangOk');
+        if (langOkBtn) langOkBtn.disabled = false;
+      }
+      break;
+    case 'addKeyResult':
+      if (msg.success) {
+        const keyMsgEl = document.getElementById('addKeyMessage');
+        if (keyMsgEl) {
+          keyMsgEl.textContent = msg.message;
+          keyMsgEl.classList.remove('add-lang-error');
+          keyMsgEl.classList.add('add-lang-success');
+        }
+        const rowIdx = msg.rowIndex;
+        setTimeout(() => {
+          try { window.__addKeyDialog.close(); } catch {}
+          // Scroll to the newly added row after reload
+          setTimeout(() => {
+            const targetRow = document.querySelector(`td[data-row="${rowIdx}"]`);
+            if (targetRow) {
+              targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          }, 100);
+        }, 800);
+      } else {
+        const keyMsgEl = document.getElementById('addKeyMessage');
+        if (keyMsgEl) {
+          keyMsgEl.textContent = msg.message;
+          keyMsgEl.classList.remove('add-lang-success');
+          keyMsgEl.classList.add('add-lang-error');
+        }
+        const keyOkBtn = document.getElementById('addKeyOk');
+        if (keyOkBtn) keyOkBtn.disabled = false;
       }
       break;
     case 'clearState':

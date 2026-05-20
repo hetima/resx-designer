@@ -332,6 +332,9 @@ class ResxEditorController {
       case 'addLocale':
         await this.handleAddLocale(msg.locale, msg.fillDefaults);
         break;
+      case 'addKey':
+        await this.handleAddKey(msg.name, msg.addToAll);
+        break;
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(msg.text);
         break;
@@ -593,6 +596,59 @@ class ResxEditorController {
 
     // Open the new file in a new tab
     await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath));
+  }
+
+  private async handleAddKey(name: string, addToAll: boolean): Promise<void> {
+    if (!this.localeSet || !this.currentWebviewPanel) { return; }
+
+    // Check if key already exists
+    if (this.gridRows.some(r => r.name === name)) {
+      this.currentWebviewPanel.webview.postMessage({
+        type: 'addKeyResult',
+        success: false,
+        name,
+        message: `Key "${name}" already exists.`,
+        rowIndex: -1,
+      });
+      return;
+    }
+
+    this.isUpdating = true;
+    try {
+      // Always add to the default file
+      const defaultDoc = this.localeSet.locales.get(null);
+      if (defaultDoc) {
+        defaultDoc.entries.push({ name, value: '', comment: '' });
+        await this.writeResxFile(defaultDoc);
+      }
+
+      // Add to other locale files if requested
+      if (addToAll) {
+        for (const [locale, doc] of this.localeSet.locales) {
+          if (locale === null) { continue; } // already handled above
+          doc.entries.push({ name, value: '', comment: '' });
+          await this.writeResxFile(doc);
+        }
+      }
+
+      this.buildGrid();
+
+      // Find the row index of the newly added key
+      const rowIndex = this.gridRows.findIndex(r => r.name === name);
+
+      // Notify webview of success (before reload)
+      this.currentWebviewPanel.webview.postMessage({
+        type: 'addKeyResult',
+        success: true,
+        name,
+        message: `Key "${name}" added successfully.`,
+        rowIndex,
+      });
+
+      this.updateWebviewContent();
+    } finally {
+      this.isUpdating = false;
+    }
   }
 
   private async handleFindMatches(
@@ -860,26 +916,27 @@ class ResxEditorController {
       #toolbar .toolbar-start { display: flex; align-items: center; gap: 8px; margin-right: auto; }
       #toolbar button { padding: 4px 10px; border: 1px solid var(--resx-border); border-radius: 3px; background: var(--resx-header-btn-bg); color: var(--resx-header-btn-fg); font-size: 13px; cursor: pointer; white-space: nowrap; }
       #toolbar button:hover { background: var(--resx-header-btn-hover-bg); border-color: var(--resx-fg); }
-      .add-lang-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-      .add-lang-dialog { background: var(--resx-body); border: 1px solid var(--resx-border); border-radius: 6px; padding: 14px 18px 18px; width: 300px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); color: var(--resx-fg); font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); }
-      .add-lang-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+      .add-lang-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+      .add-lang-dialog { background: var(--resx-body); border: 1px solid var(--resx-border); border-radius: 6px; padding: 14px 18px 18px; width: 300px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); color: var(--resx-fg); font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size: 14px; }
+      .add-lang-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
       .add-lang-field { margin-bottom: 8px; }
-      .add-lang-input { width: 100%; box-sizing: border-box; height: 28px; padding: 0 8px; border: 1px solid var(--resx-input-border); border-radius: 2px; background: var(--resx-input-bg); color: var(--resx-input-fg); font-size: 13px; font-family: inherit; outline: none; }
+      .add-lang-input { width: 100%; box-sizing: border-box; height: 30px; padding: 0 8px; border: 1px solid var(--resx-input-border); border-radius: 2px; background: var(--resx-input-bg); color: var(--resx-input-fg); font-size: 14px; font-family: inherit; outline: none; }
       .add-lang-input:focus { border-color: var(--resx-focus-border); box-shadow: 0 0 0 1px var(--resx-focus-border); }
-      .add-lang-checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; margin-bottom: 8px; color: var(--resx-fg); }
-      .add-lang-message { font-size: 12px; min-height: 16px; margin-bottom: 6px; line-height: 1.4; }
-      .add-lang-warning { font-size: 11px; color: var(--vscode-notificationsWarningIcon-foreground, #cca700); min-height: 15px; margin-bottom: 2px; line-height: 1.3; }
+      .add-lang-checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin-bottom: 8px; color: var(--resx-fg); }
+      .add-lang-message { font-size: 13px; min-height: 16px; margin-bottom: 6px; line-height: 1.4; }
+      .add-lang-warning { font-size: 12px; color: var(--vscode-notificationsWarningIcon-foreground, #cca700); min-height: 15px; margin-bottom: 2px; line-height: 1.3; }
       .add-lang-error { color: var(--vscode-notificationsErrorIcon-foreground, #f44); }
       .add-lang-success { color: var(--vscode-notificationsInfoIcon-foreground, #3794ff); }
       .add-lang-buttons { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
-      .add-lang-btn { padding: 5px 14px; border: none; border-radius: 2px; background: var(--resx-btn-bg); color: var(--resx-btn-fg); font-size: 12px; font-family: inherit; cursor: pointer; }
+      .add-lang-btn { padding: 5px 14px; border: none; border-radius: 2px; background: var(--resx-btn-bg); color: var(--resx-btn-fg); font-size: 13px; font-family: inherit; cursor: pointer; }
       .add-lang-btn:hover { background: var(--resx-btn-hover); }
     </style>
   </head>
   <body>
     <div id="toolbar">
       <div class="toolbar-start">
-        <button id="addLangBtn" title="Add a new language column">+ Lang</button>
+        <button id="addLangBtn" title="Add a new language column">+ New Lang</button>
+        <button id="addKeyBtn" title="Add a new resource key">+ New Key</button>
       </div>
       <button id="viewModeBtn" title="${this.viewMode === 'single' ? 'Show all locale columns' : 'Show single file columns'}">${this.viewMode === 'single' ? 'Multi View' : 'Single View'}</button>
       <button id="openAsTextBtn" title="Open this file in the default text editor">Open as Text</button>
