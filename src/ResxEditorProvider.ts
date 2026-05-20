@@ -962,26 +962,6 @@ class ResxEditorController {
       html += '</tr>';
     }
 
-    // Virtual empty row for quick append
-    const vRow = this.gridRows.length;
-    for (const vc of visibleColumns) {
-      const physIdx = vc.physicalIndex;
-      if (vc.kind === 'index') {
-        if (addSerialIndex) {
-          html += `<td class="index-col" data-row="${vRow}" data-col="${physIdx}">${this.gridRows.length + 1}</td>`;
-        } else {
-          html += `<td style="display:none;" data-row="${vRow}" data-col="${physIdx}"></td>`;
-        }
-      } else if (vc.kind === 'name') {
-        html += `<td class="name-col" data-row="${vRow}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}></td>`;
-      } else if (vc.kind === 'comment') {
-        html += `<td class="comment-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
-      } else if (vc.kind === 'locale') {
-        html += `<td class="value-col" data-row="${vRow}" data-col="${physIdx}"></td>`;
-      }
-    }
-    html += '</tr>';
-
     html += '</tbody></table>';
     return html;
   }

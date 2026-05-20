@@ -220,7 +220,7 @@ const getCellTarget = target => {
   return el ? el.closest('td, th') : null;
 };
 const isColumnHeaderCell = cell => cell && cell.tagName === 'TH' && cell.getAttribute('data-col') !== '-1' && cell.getAttribute('data-col') !== null;
-const isRowIndexCell = cell => cell && cell.getAttribute && cell.getAttribute('data-col') === '-1';
+const isRowIndexCell = cell => cell && cell.classList && cell.classList.contains('index-col');
 
 const getSelectedRowIds = () => {
   const ids = currentSelection
@@ -393,17 +393,6 @@ const enterEditMode = (cell, mode) => {
   cell.classList.add('editing');
   cell.contentEditable = 'true';
   cell.focus();
-  // Place caret at end of content (deferred to avoid browser overriding)
-  if (mode === 'quick' || mode === 'detail') {
-    setTimeout(() => {
-      const range = document.createRange();
-      range.selectNodeContents(cell);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }, 0);
-  }
 };
 
 // ── Mouse handlers ─────────────────────────────────────────────────
@@ -533,7 +522,7 @@ document.addEventListener('mouseup', e => {
       selectCell(startCell, true);
     } else {
       selectCell(startCell, false);
-      if (SINGLE_CLICK_EDIT) enterEditMode(startCell, 'quick');
+      if (SINGLE_CLICK_EDIT && startCell !== editingCell) enterEditMode(startCell, 'quick');
     }
   } else if (mouseDownPos && isDragging) {
     const a = startCell;
