@@ -78,16 +78,11 @@ export interface WebviewReplaceCellsMessage {
   replacements: Array<{ row: number; col: number; value: string }>;
 }
 
-/** Insert a new resource key (row) */
-export interface WebviewInsertRowMessage {
-  type: 'insertRow';
-  index: number;
-}
-
-/** Delete resource keys (rows) */
-export interface WebviewDeleteRowsMessage {
-  type: 'deleteRows';
-  indices: number[];
+/** Delete a resource key by name (from action column menu) */
+export interface WebviewDeleteKeyMessage {
+  type: 'deleteKey';
+  name: string;
+  allFiles: boolean;
 }
 
 /** Rename a resource key */
@@ -121,6 +116,7 @@ export interface WebviewAddKeyMessage {
   type: 'addKey';
   name: string;
   addToAll: boolean;
+  insertAfterIndex?: number;
 }
 
 /** Copy selected text to clipboard */
@@ -167,8 +163,7 @@ export interface WebviewSetContextCellMessage {
 export type WebviewToHostMessage =
   | WebviewEditCellMessage
   | WebviewReplaceCellsMessage
-  | WebviewInsertRowMessage
-  | WebviewDeleteRowsMessage
+  | WebviewDeleteKeyMessage
   | WebviewRenameKeyMessage
   | WebviewSortRowsMessage
   | WebviewSortCurrentFileMessage

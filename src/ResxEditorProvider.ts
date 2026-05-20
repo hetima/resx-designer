@@ -318,11 +318,8 @@ class ResxEditorController {
       case 'editCell':
         await this.handleEditCell(msg.row, msg.col, msg.value);
         break;
-      case 'insertRow':
-        await this.handleInsertRow(msg.index);
-        break;
-      case 'deleteRows':
-        await this.handleDeleteRows(msg.indices);
+      case 'deleteKey':
+        await this.handleDeleteKey(msg.name, msg.allFiles);
         break;
       case 'renameKey':
         await this.handleRenameKey(msg.row, msg.newName);
@@ -337,7 +334,7 @@ class ResxEditorController {
         await this.handleAddLocale(msg.locale, msg.fillDefaults);
         break;
       case 'addKey':
-        await this.handleAddKey(msg.name, msg.addToAll);
+        await this.handleAddKey(msg.name, msg.addToAll, msg.insertAfterIndex);
         break;
       case 'copyToClipboard':
         await vscode.env.clipboard.writeText(msg.text);
@@ -422,53 +419,32 @@ class ResxEditorController {
     }
   }
 
-  public async handleInsertRow(index: number): Promise<void> {
+  public async handleDeleteKey(name: string, allFiles: boolean): Promise<void> {
     if (!this.localeSet) { return; }
-    // Generate a new unique name
-    const baseName = 'new_key';
-    let name = baseName;
-    let counter = 1;
-    const existingNames = new Set(this.gridRows.map(r => r.name));
-    while (existingNames.has(name)) {
-      name = `${baseName}_${counter++}`;
-    }
 
     this.isUpdating = true;
     try {
-      // Insert into all locale files
-      for (const [locale, doc] of this.localeSet.locales) {
-        const entry: ResxEntry = { name, value: '', comment: '' };
-        if (index >= 0 && index < doc.entries.length) {
-          // Try to insert at the right position
-          const targetName = this.gridRows[index]?.name;
-          const targetIdx = doc.entries.findIndex(e => e.name === targetName);
-          if (targetIdx >= 0) {
-            doc.entries.splice(targetIdx, 0, entry);
-          } else {
-            doc.entries.push(entry);
-          }
-        } else {
-          doc.entries.push(entry);
+      if (allFiles) {
+        // Save the open document first to ensure on-disk state is current
+        try { await this.document.save(); } catch {}
+        // Reload locale set from disk to get latest state
+        await this.loadLocaleSet();
+        // Delete from all locale files
+        for (const [, doc] of this.localeSet.locales) {
+          doc.entries = doc.entries.filter(e => e.name !== name);
+          await this.writeResxFile(doc);
         }
-        await this.writeResxFile(doc);
-      }
-
-      this.buildGrid();
-      this.updateWebviewContent();
-    } finally {
-      this.isUpdating = false;
-    }
-  }
-
-  public async handleDeleteRows(indices: number[]): Promise<void> {
-    if (!this.localeSet || !indices.length) { return; }
-    const namesToDelete = new Set(indices.map(i => this.gridRows[i]?.name).filter(Boolean));
-
-    this.isUpdating = true;
-    try {
-      for (const [, doc] of this.localeSet.locales) {
-        doc.entries = doc.entries.filter(e => !namesToDelete.has(e.name));
-        await this.writeResxFile(doc);
+        // Reload again to reflect all deletions
+        await this.loadLocaleSet();
+      } else {
+        // Delete from current file only
+        const currentDoc = this.localeSet.locales.get(this.currentLocale);
+        if (currentDoc) {
+          currentDoc.entries = currentDoc.entries.filter(e => e.name !== name);
+          await this.writeResxFile(currentDoc);
+        }
+        // Reload locale set to reflect the change
+        await this.loadLocaleSet();
       }
 
       this.buildGrid();
@@ -614,7 +590,7 @@ class ResxEditorController {
     await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(filePath));
   }
 
-  private async handleAddKey(name: string, addToAll: boolean): Promise<void> {
+  private async handleAddKey(name: string, addToAll: boolean, insertAfterIndex?: number): Promise<void> {
     if (!this.localeSet || !this.currentWebviewPanel) { return; }
 
     // Check if key already exists
@@ -631,18 +607,37 @@ class ResxEditorController {
 
     this.isUpdating = true;
     try {
+      // Determine the name of the key to insert after (for positional insert)
+      const afterName = (insertAfterIndex != null && insertAfterIndex >= 0 && insertAfterIndex < this.gridRows.length)
+        ? this.gridRows[insertAfterIndex].name
+        : null;
+
+      const addEntry = (doc: ResxDocument): void => {
+        const entry: ResxEntry = { name, value: '', comment: '' };
+        if (afterName) {
+          const idx = doc.entries.findIndex(e => e.name === afterName);
+          if (idx >= 0) {
+            doc.entries.splice(idx + 1, 0, entry);
+          } else {
+            doc.entries.push(entry);
+          }
+        } else {
+          doc.entries.push(entry);
+        }
+      };
+
       // Always add to the default file
       const defaultDoc = this.localeSet.locales.get(null);
       if (defaultDoc) {
-        defaultDoc.entries.push({ name, value: '', comment: '' });
+        addEntry(defaultDoc);
         await this.writeResxFile(defaultDoc);
       }
 
       // Add to other locale files if requested
       if (addToAll) {
         for (const [locale, doc] of this.localeSet.locales) {
-          if (locale === null) { continue; } // already handled above
-          doc.entries.push({ name, value: '', comment: '' });
+          if (locale === null) { continue; }
+          addEntry(doc);
           await this.writeResxFile(doc);
         }
       }
@@ -908,6 +903,8 @@ class ResxEditorController {
       .action-menu-item { width: 100%; border: none; background: transparent; color: var(--resx-fg); border-radius: 4px; text-align: left; padding: 5px 10px; cursor: pointer; font-size: 13px; font-family: inherit; display: flex; align-items: center; gap: 8px; }
       .action-menu-item:hover { background: var(--resx-header-btn-hover-bg); }
       .action-menu-item.disabled { opacity: 0.4; pointer-events: none; }
+      .action-menu-item.danger { color: var(--vscode-notificationsErrorIcon-foreground, #f44); }
+      .action-menu-item.danger:hover { background: rgba(255,80,80,0.1); }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
         background: var(--fr-bg); border: 1px solid var(--fr-border); border-radius: 8px; padding: 10px;

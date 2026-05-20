@@ -320,40 +320,6 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       },
     ),
 
-    // Context menu commands for RESX editor webview
-    vscode.commands.registerCommand("resx.addRowBelow", async () => {
-      const active = ResxEditorProvider.getActiveProvider();
-      if (!active) {
-        return;
-      }
-      const ctx = active.getContextCell();
-      if (!ctx || ctx.isHeader) {
-        return;
-      }
-      const selectedRows =
-        ctx.selectedRows.length > 0 ? ctx.selectedRows : [ctx.row];
-      const index =
-        selectedRows.length > 1 ? Math.max(...selectedRows) + 1 : ctx.row + 1;
-      // Send message for each row that would have been inserted
-      for (let i = 0; i < Math.max(selectedRows.length, 1); i++) {
-        await active.handleInsertRow(index + i);
-      }
-    }),
-
-    vscode.commands.registerCommand("resx.deleteRows", async () => {
-      const active = ResxEditorProvider.getActiveProvider();
-      if (!active) {
-        return;
-      }
-      const ctx = active.getContextCell();
-      if (!ctx || ctx.isHeader) {
-        return;
-      }
-      const selectedRows =
-        ctx.selectedRows.length > 0 ? ctx.selectedRows : [ctx.row];
-      await active.handleDeleteRows(selectedRows);
-    }),
-
     vscode.commands.registerCommand("resx.bulkEdit", async (e: any) => {
       const active = ResxEditorProvider.getActiveProvider();
       if (!active) {

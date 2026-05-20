@@ -698,6 +698,7 @@ const closeActionMenu = () => {
 const openActionMenu = (cell, clientX, clientY) => {
   closeActionMenu();
   const name = cell.getAttribute('data-name') || '';
+  const row = parseInt(cell.getAttribute('data-row') || '0', 10);
 
   actionMenuOverlay = document.createElement('div');
   actionMenuOverlay.className = 'action-menu-overlay';
@@ -707,7 +708,9 @@ const openActionMenu = (cell, clientX, clientY) => {
   actionMenuEl.className = 'action-menu';
   actionMenuEl.innerHTML = `
     <div class="action-menu-label" title="${name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
-    <button class="action-menu-item" data-action="bulkEdit">✏ Bulk Edit</button>
+    <button class="action-menu-item" data-action="bulkEdit">Bulk Edit</button>
+    <button class="action-menu-item" data-action="insertKeyBelow">Insert New Key Below</button>
+    <button class="action-menu-item danger" data-action="deleteKey">Delete This Key…</button>
   `;
   document.body.appendChild(actionMenuEl);
 
@@ -727,6 +730,10 @@ const openActionMenu = (cell, clientX, clientY) => {
       const action = btn.getAttribute('data-action');
       if (action === 'bulkEdit') {
         vscode.postMessage({ type: 'bulkEdit', name });
+      } else if (action === 'insertKeyBelow') {
+        openInsertKeyDialog(name, row);
+      } else if (action === 'deleteKey') {
+        openDeleteKeyDialog(name);
       }
       closeActionMenu();
     });
@@ -748,6 +755,133 @@ table?.addEventListener('click', e => {
   e.stopPropagation();
   openActionMenu(cell, e.clientX, e.clientY);
 });
+
+// ── Insert key below dialog ─────────────────────────────────────
+
+const openInsertKeyDialog = (afterName, afterRow) => {
+  closeActionMenu();
+  let dialogEl = null;
+
+  dialogEl = document.createElement('div');
+  dialogEl.className = 'add-lang-overlay';
+  dialogEl.innerHTML = `
+    <div class="add-lang-dialog">
+      <div class="add-lang-title">Insert New Key Below</div>
+      <div class="add-lang-field">
+        <input id="insertKeyInput" class="add-lang-input" type="text"
+               placeholder="Resource key name" spellcheck="false" autocomplete="off">
+      </div>
+      <label class="add-lang-checkbox-label">
+        <input id="insertKeyAddToAll" type="checkbox" checked>
+        Add to all languages
+      </label>
+      <div id="insertKeyMessage" class="add-lang-message"></div>
+      <div class="add-lang-buttons">
+        <button id="insertKeyCancel" class="add-lang-btn">Cancel</button>
+        <button id="insertKeyOk" class="add-lang-btn">OK</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialogEl);
+
+  const input = document.getElementById('insertKeyInput');
+  const msgEl = document.getElementById('insertKeyMessage');
+  const okBtn = document.getElementById('insertKeyOk');
+  const cancelBtn = document.getElementById('insertKeyCancel');
+  msgEl.textContent = '';
+  input.focus();
+
+  function closeDialog() {
+    if (dialogEl) { dialogEl.remove(); dialogEl = null; }
+  }
+
+  cancelBtn.addEventListener('click', closeDialog);
+  dialogEl.addEventListener('click', (e) => {
+    if (e.target === dialogEl) closeDialog();
+  });
+
+  okBtn.addEventListener('click', () => {
+    const name = input.value.trim();
+    if (!name) {
+      msgEl.textContent = 'Key name is required.';
+      msgEl.classList.add('add-lang-error');
+      return;
+    }
+    const addToAll = document.getElementById('insertKeyAddToAll').checked;
+    vscode.postMessage({ type: 'addKey', name, addToAll, insertAfterIndex: afterRow });
+    proceedAfterAddKeyResult(closeDialog, msgEl);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') okBtn.click();
+    if (e.key === 'Escape') closeDialog();
+  });
+};
+
+/** Close dialog and reset message on addKeyResult from host */
+const proceedAfterAddKeyResult = (closeFn, msgEl) => {
+  const handler = (e) => {
+    if (e.data?.type === 'addKeyResult') {
+      window.removeEventListener('message', handler);
+      if (e.data.success) {
+        closeFn();
+      } else {
+        msgEl.textContent = e.data.message || 'Error';
+        msgEl.classList.add('add-lang-error');
+      }
+    }
+  };
+  window.addEventListener('message', handler);
+};
+
+// ── Delete key dialog ──────────────────────────────────────────
+
+const openDeleteKeyDialog = (name) => {
+  closeActionMenu();
+  let dialogEl = null;
+
+  dialogEl = document.createElement('div');
+  dialogEl.className = 'add-lang-overlay';
+  dialogEl.innerHTML = `
+    <div class="add-lang-dialog">
+      <div class="add-lang-title">Delete Key</div>
+      <div class="add-lang-message" style="color: var(--vscode-notificationsErrorIcon-foreground, #f44); font-weight: 500;">"${name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}" will be deleted. This cannot be undone.</div>
+      <label class="add-lang-checkbox-label">
+        <input id="deleteKeyAllFiles" type="checkbox" checked>
+        Delete from all .resx files
+      </label>
+      <div id="deleteKeyMessage" class="add-lang-message"></div>
+      <div class="add-lang-buttons">
+        <button id="deleteKeyCancel" class="add-lang-btn">Cancel</button>
+        <button id="deleteKeyOk" class="add-lang-btn" style="background: var(--vscode-notificationsErrorIcon-foreground, #f44); color: #fff;">OK</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dialogEl);
+
+  const msgEl = document.getElementById('deleteKeyMessage');
+  const okBtn = document.getElementById('deleteKeyOk');
+  const cancelBtn = document.getElementById('deleteKeyCancel');
+
+  function closeDialog() {
+    if (dialogEl) { dialogEl.remove(); dialogEl = null; }
+  }
+
+  cancelBtn.addEventListener('click', closeDialog);
+  dialogEl.addEventListener('click', (e) => {
+    if (e.target === dialogEl) closeDialog();
+  });
+
+  okBtn.addEventListener('click', () => {
+    const allFiles = document.getElementById('deleteKeyAllFiles').checked;
+    vscode.postMessage({ type: 'deleteKey', name, allFiles });
+    okBtn.disabled = true;
+  });
+
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { closeDialog(); document.removeEventListener('keydown', onKey); }
+  });
+};
 
 // Close menu on any other click outside
 document.addEventListener('click', e => {

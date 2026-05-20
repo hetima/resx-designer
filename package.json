@@ -73,16 +73,6 @@
         "title": "RESX: Set as Default resx"
       },
       {
-        "command": "resx.addRowBelow",
-        "title": "Add Row Below",
-        "icon": "$(add)"
-      },
-      {
-        "command": "resx.deleteRows",
-        "title": "Delete Row(s)",
-        "icon": "$(trash)"
-      },
-      {
         "command": "resx.bulkEdit",
         "title": "Bulk Edit",
         "icon": "$(split-horizontal)"
