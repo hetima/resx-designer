@@ -19,8 +19,8 @@ export function getThemeCssVariables(): string {
     `--resx-body:                var(--vscode-editor-background);`,
     `--resx-fg:                  var(--vscode-editor-foreground);`,
     `--resx-border:              var(--vscode-widget-border, var(--vscode-panel-border));`,
-    `--resx-header-bg:           var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-sideBarSectionHeader-background, var(--resx-body)));`,
-    `--resx-toolbar-border:      var(--vscode-editorGroupHeader-tabsBorder, var(--resx-widget-border));`,
+    `--resx-header-bg:           var(--resx-body);`,
+    `--resx-toolbar-border:      var(--resx-border);`,
     `--resx-selected-bg:         var(--vscode-list-activeSelectionBackground);`,
     `--resx-hover-bg:            var(--vscode-list-hoverBackground);`,
     `--resx-highlight-bg:        var(--vscode-editor-lineHighlightBackground);`,
@@ -41,6 +41,9 @@ export function getThemeCssVariables(): string {
     `--resx-widget-border:       var(--vscode-editorWidget-border);`,
     `--resx-accent:              var(--vscode-button-secondaryBackground, var(--vscode-activityBarBadge-background));`,
     `--resx-index-fg:            var(--vscode-descriptionForeground);`,
+    `--resx-header-btn-bg:       transparent;`,
+    `--resx-header-btn-fg:       var(--resx-fg);`,
+    `--resx-header-btn-hover-bg: var(--vscode-list-hoverBackground);`,
   ];
 
   // Find-widget variables (derived from widget / input tokens)

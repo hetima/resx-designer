@@ -835,8 +835,8 @@ class ResxEditorController {
       #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: var(--fr-fg); border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
       #findReplaceWidget .fr-overflow-item:hover { background: var(--fr-btn-hover-bg); }
       #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); }
-      #toolbar button { padding: 2px 10px; border: 1px solid var(--resx-btn-border); border-radius: 3px; background: var(--resx-btn-bg); color: var(--resx-btn-fg); font-size: 12px; cursor: pointer; white-space: nowrap; }
-      #toolbar button:hover { background: var(--resx-btn-hover); }
+      #toolbar button { padding: 4px 10px; border: 1px solid var(--resx-border); border-radius: 3px; background: var(--resx-header-btn-bg); color: var(--resx-header-btn-fg); font-size: 13px; cursor: pointer; white-space: nowrap; }
+      #toolbar button:hover { background: var(--resx-header-btn-hover-bg); border-color: var(--resx-fg); }
     </style>
   </head>
   <body>
