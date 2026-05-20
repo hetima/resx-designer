@@ -7,6 +7,7 @@ import {
 import { parseResx, encodeXmlEntities } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, getSortedLocales, parseResxFilename } from './resx-locale-finder';
+import { openBulkEditPanel } from './bulk-edit-panel';
 
 // ─────────────────────────────────────────────────────────────────────
 // ResxEditorController — manages one webview + one locale set.
@@ -26,7 +27,13 @@ class ResxEditorController {
   /** The locale of the currently-open document (null = default/culture-invariant). */
   private currentLocale: string | null = null;
 
+  /** Context menu cell info (set by webview on right-click for VSCode context menu commands). */
+  private _contextCell: { row: number; col: number; isHeader: boolean; selectedRows: number[]; name: string } | null = null;
+
   constructor(private readonly context: vscode.ExtensionContext) {}
+
+  /** Get the context cell info for context menu commands. */
+  public getContextCell() { return this._contextCell; }
 
   public async resolveCustomTextEditor(
     document: vscode.TextDocument,
@@ -330,7 +337,12 @@ class ResxEditorController {
       case 'setViewMode':
         await this.handleSetViewMode(msg.mode);
         break;
-
+      case 'bulkEdit':
+        await openBulkEditPanel(this.context, this.document.uri, msg.name);
+        break;
+      case 'setContextCell':
+        this._contextCell = { row: msg.row, col: msg.col, isHeader: msg.isHeader, selectedRows: msg.selectedRows, name: msg.name };
+        break;
     }
   }
 
@@ -394,7 +406,7 @@ class ResxEditorController {
     }
   }
 
-  private async handleInsertRow(index: number): Promise<void> {
+  public async handleInsertRow(index: number): Promise<void> {
     if (!this.localeSet) { return; }
     // Generate a new unique name
     const baseName = 'new_key';
@@ -432,7 +444,7 @@ class ResxEditorController {
     }
   }
 
-  private async handleDeleteRows(indices: number[]): Promise<void> {
+  public async handleDeleteRows(indices: number[]): Promise<void> {
     if (!this.localeSet || !indices.length) { return; }
     const namesToDelete = new Set(indices.map(i => this.gridRows[i]?.name).filter(Boolean));
 
@@ -497,7 +509,7 @@ class ResxEditorController {
     await this.writeResxFile(doc);
   }
 
-  private handleSortRows(ascending: boolean): void {
+  public handleSortRows(ascending: boolean): void {
     this.gridRows.sort((a, b) => {
       const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       return ascending ? cmp : -cmp;
@@ -831,9 +843,6 @@ class ResxEditorController {
       #findReplaceWidget .fr-overflow-menu.open { display: block; }
       #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: #d4d4d4; border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
       #findReplaceWidget .fr-overflow-item:hover { background: rgba(255,255,255,0.05); }
-      #contextMenu { position: absolute; display: none; background: ${isDark ? '#2d2d2d' : '#ffffff'}; border: 1px solid ${isDark ? '#555' : '#ccc'}; z-index: 10000; font-family: ${this.escapeCss(fontFamily)}; font-size: inherit; }
-      #contextMenu div { padding: 4px 12px; cursor: pointer; }
-      #contextMenu div:hover { background: ${isDark ? '#3d3d3d' : '#eeeeee'}; }
       #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: ${isDark ? '#252526' : '#f3f3f3'}; border-bottom: 1px solid ${isDark ? '#3e3e3e' : '#ddd'}; }
       #toolbar button { padding: 2px 10px; border: 1px solid ${isDark ? '#555' : '#bbb'}; border-radius: 3px; background: ${isDark ? '#3c3c3c' : '#ffffff'}; color: ${isDark ? '#ccc' : '#333'}; font-size: 12px; cursor: pointer; white-space: nowrap; }
       #toolbar button:hover { background: ${isDark ? '#4c4c4c' : '#e8e8e8'}; }
@@ -897,7 +906,6 @@ class ResxEditorController {
         </div>
       </div>
     </div>
-    <div id="contextMenu"></div>
     <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;

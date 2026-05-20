@@ -141,6 +141,22 @@ export interface WebviewSetViewModeMessage {
   mode: 'single' | 'multi';
 }
 
+/** Open bulk edit panel for a specific resource name */
+export interface WebviewBulkEditMessage {
+  type: 'bulkEdit';
+  name: string;
+}
+
+/** Notify host which cell was right-clicked (for VSCode context menu commands) */
+export interface WebviewSetContextCellMessage {
+  type: 'setContextCell';
+  row: number;
+  col: number;
+  isHeader: boolean;
+  selectedRows: number[];
+  name: string;
+}
+
 export type WebviewToHostMessage =
   | WebviewEditCellMessage
   | WebviewReplaceCellsMessage
@@ -153,4 +169,6 @@ export type WebviewToHostMessage =
   | WebviewFindMessage
   | WebviewReplaceMatchesMessage
   | WebviewOpenAsTextMessage
-  | WebviewSetViewModeMessage;
+  | WebviewSetViewModeMessage
+  | WebviewBulkEditMessage
+  | WebviewSetContextCellMessage;

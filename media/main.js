@@ -51,7 +51,6 @@ let resizeState = null;
 
 const table = document.querySelector('#csv-root table');
 const scrollContainer = document.querySelector('.table-container');
-const contextMenu = document.getElementById('contextMenu');
 
 let columnSizeState = {};
 let rowSizeState = {};
@@ -254,79 +253,6 @@ const updateMissingHighlight = (cell, row, col) => {
 
 // ── Context menu ───────────────────────────────────────────────────
 
-const showContextMenu = (x, y, row, col) => {
-  contextMenu.innerHTML = '';
-  const item = (label, cb) => {
-    const d = document.createElement('div');
-    d.textContent = label;
-    d.addEventListener('click', () => { cb(); contextMenu.style.display = 'none'; });
-    contextMenu.appendChild(d);
-  };
-  const divider = () => {
-    const d = document.createElement('div');
-    d.style.borderTop = '1px solid #888';
-    d.style.margin = '1px 0';
-    contextMenu.appendChild(d);
-  };
-
-  const selectedRowIds = getSelectedRowIds();
-  const rowCountSel = selectedRowIds.length;
-
-  if (lastContextIsHeader) {
-    if (isResxMode) {
-      item('Sort: A-Z', () =>
-        vscode.postMessage({ type: 'sortRows', ascending: true, row: -1, col: -1, value: '' }));
-      item('Sort: Z-A', () =>
-        vscode.postMessage({ type: 'sortRows', ascending: false, row: -1, col: -1, value: '' }));
-    }
-  }
-
-  if (!isNaN(row) && row >= 0) {
-    if (contextMenu.children.length) divider();
-    const rowsN = rowCountSel > 1 ? rowCountSel : 1;
-    const addBelowLabel = rowsN > 1 ? `Add ${rowsN} ROWS below` : 'Add ROW below';
-    const delLabel = rowsN > 1 ? `Delete ${rowsN} ROWS` : 'Delete ROW';
-    item(addBelowLabel, () => {
-      if (isResxMode) {
-        const base = rowCountSel > 1 ? Math.max(...selectedRowIds) + 1 : (row + 1);
-        vscode.postMessage({ type: 'insertRow', index: base, row: -1, col: -1, value: '' });
-        vscode.postMessage({ type: 'insertRow', index: base, row: -1, col: -1, value: '' });
-      } else {
-        const base = rowCountSel > 1 ? Math.max(...selectedRowIds) + 1 : (row + 1);
-        const count = rowsN;
-        vscode.postMessage({ type: 'insertRows', index: base, count });
-      }
-    });
-    item(delLabel, () => {
-      if (isResxMode) {
-        if (rowCountSel > 1) {
-          vscode.postMessage({ type: 'deleteRows', indices: selectedRowIds, row: -1, col: -1, value: '' });
-        } else {
-          vscode.postMessage({ type: 'deleteRows', indices: [row], row: -1, col: -1, value: '' });
-        }
-      } else {
-        if (rowCountSel > 1) {
-          vscode.postMessage({ type: 'deleteRows', indices: selectedRowIds });
-        } else {
-          vscode.postMessage({ type: 'deleteRow', index: row });
-        }
-      }
-    });
-
-    if (isResxMode) {
-      divider();
-      item('Add new locale…', () => {
-        vscode.postMessage({ type: 'addLocale', locale: '', row: -1, col: -1, value: '' });
-      });
-    }
-  }
-
-  if (!contextMenu.children.length) return;
-  contextMenu.style.left = x + 'px';
-  contextMenu.style.top = y + 'px';
-  contextMenu.style.display = 'block';
-};
-
 // ── Selection engine ───────────────────────────────────────────────
 
 const selectCell = (cell, extend = false) => {
@@ -476,19 +402,11 @@ document.addEventListener('mouseup', e => {
 
 table?.addEventListener('mousedown', e => {
   if (isResizing) return;
-  hideContextMenu();
   const cell = getCellTarget(e.target);
   if (!cell) return;
 
   lastContextIsHeader = isColumnHeaderCell(cell);
   const { row, col } = getCellCoords(cell);
-
-  if (e.button === 2) {
-    // right-click: select cell + show menu
-    selectCell(cell, false);
-    showContextMenu(e.clientX, e.clientY, row, col);
-    return;
-  }
 
   if (e.button !== 0) return;
   if (isColumnHeaderCell(cell) || isRowIndexCell(cell)) return;
@@ -498,6 +416,21 @@ table?.addEventListener('mousedown', e => {
   startCell = cell;
   endCell = null;
   selectionMode = e.shiftKey ? "extend" : "cell";
+});
+
+// Right-click: send context cell info to host so VSCode context menu commands can use it
+table?.addEventListener('contextmenu', e => {
+  const cell = getCellTarget(e.target);
+  if (!cell) return;
+  selectCell(cell, false);
+  const { row, col } = getCellCoords(cell);
+  const isHeader = isColumnHeaderCell(cell);
+  const selectedRows = getSelectedRowIds();
+  const nameCell = table.querySelector(`td[data-row="${row}"].name-col`);
+  const name = nameCell ? (nameCell.textContent || '') : '';
+  vscode.postMessage({
+    type: 'setContextCell', row, col, isHeader, selectedRows, name
+  });
 });
 
 document.addEventListener('mousemove', e => {
@@ -558,12 +491,6 @@ table?.addEventListener('dblclick', e => {
     enterEditMode(cell, 'detail');
   }
 });
-
-document.addEventListener('mousedown', e => {
-  if (!contextMenu.contains(e.target)) hideContextMenu();
-});
-
-const hideContextMenu = () => { contextMenu.style.display = 'none'; };
 
 // ── Keyboard handlers ──────────────────────────────────────────────
 

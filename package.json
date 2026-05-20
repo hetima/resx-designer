@@ -64,6 +64,16 @@
       {
         "command": "resx.setDefaultResx",
         "title": "RESX: Set as Default resx"
+      },
+      {
+        "command": "resx.addRowBelow",
+        "title": "Add Row Below",
+        "icon": "$(add)"
+      },
+      {
+        "command": "resx.deleteRows",
+        "title": "Delete Row(s)",
+        "icon": "$(trash)"
       }
     ],
     "configuration": {
@@ -158,6 +168,18 @@
           "command": "resx.setDefaultResx",
           "when": "resourceLangId == resx",
           "group": "1_resx@1"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "resx.addRowBelow",
+          "when": "activeWebviewPanelId == 'resx.editor'",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "resx.deleteRows",
+          "when": "activeWebviewPanelId == 'resx.editor'",
+          "group": "1_edit@2"
         }
       ]
     }
