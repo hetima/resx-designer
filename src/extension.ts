@@ -105,46 +105,65 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(cfgListener);
 
-  // ── Auto-generate Designer.cs on .resx save ──────────────────────
-  const saveListener = vscode.workspace.onDidSaveTextDocument(async (doc) => {
-    const config = vscode.workspace.getConfiguration('resx', doc.uri);
-    const inspected = config.inspect<string>('defaultResx');
-    if (!inspected?.workspaceFolderValue && !inspected?.workspaceValue
-      && !inspected?.globalValue && !inspected?.globalLanguageValue
-      && !inspected?.workspaceLanguageValue && !inspected?.workspaceFolderLanguageValue) {
-      return;
+  // ── Auto-generate Designer.cs on .resx change ────────────────────
+  // FileSystemWatcher catches both VS Code saves and external edits (CLI-AI, etc.)
+  if (vscode.workspace.workspaceFolders) {
+    for (const wsFolder of vscode.workspace.workspaceFolders) {
+      const pattern = new vscode.RelativePattern(wsFolder, '**/*.resx');
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      watcher.onDidChange(async (uri) => {
+        await tryRegenerateDesignerCs(uri, extensionVersion);
+      });
+      context.subscriptions.push(watcher);
     }
-    const defaultResx = config.get<string>('defaultResx')!;
-    if (!defaultResx) { return; }
-
-    const wsFolder = vscode.workspace.getWorkspaceFolder(doc.uri);
-    const relativePath = wsFolder
-      ? path.relative(wsFolder.uri.fsPath, doc.uri.fsPath).replace(/\\/g, '/')
-      : path.basename(doc.uri.fsPath);
-    if (relativePath !== defaultResx) { return; }
-
-    await regenerateDesignerCs(doc, wsFolder, config, extensionVersion);
-  });
-
-  context.subscriptions.push(saveListener);
+  }
 }
 
 // ── Designer.cs Generation ─────────────────────────────────────────
 
+/** Check if uri matches the configured defaultResx, then regenerate. */
+async function tryRegenerateDesignerCs(
+  uri: vscode.Uri,
+  extensionVersion: string,
+): Promise<void> {
+  const config = vscode.workspace.getConfiguration('resx', uri);
+  const inspected = config.inspect<string>('defaultResx');
+  if (!inspected?.workspaceFolderValue && !inspected?.workspaceValue
+    && !inspected?.globalValue && !inspected?.globalLanguageValue
+    && !inspected?.workspaceLanguageValue && !inspected?.workspaceFolderLanguageValue) {
+    return;
+  }
+  const defaultResx = config.get<string>('defaultResx')!;
+  if (!defaultResx) { return; }
+
+  const wsFolder = vscode.workspace.getWorkspaceFolder(uri);
+  const relativePath = wsFolder
+    ? path.relative(wsFolder.uri.fsPath, uri.fsPath).replace(/\\/g, '/')
+    : path.basename(uri.fsPath);
+  if (relativePath !== defaultResx) { return; }
+
+  // Read file content from disk (works for both VS Code saves and external edits)
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  const xmlText = new TextDecoder('utf-8').decode(bytes);
+
+  await regenerateDesignerCs(uri, xmlText, wsFolder, config, extensionVersion);
+}
+
 async function regenerateDesignerCs(
-  doc: vscode.TextDocument,
+  docUri: vscode.Uri,
+  xmlText: string,
   wsFolder: vscode.WorkspaceFolder | undefined,
   config: vscode.WorkspaceConfiguration,
   extensionVersion: string,
 ): Promise<void> {
   try {
-    const stem = path.basename(doc.uri.fsPath, '.resx');
-    const resxDir = path.dirname(doc.uri.fsPath);
+    const stem = path.basename(docUri.fsPath, '.resx');
+    const resxDir = path.dirname(docUri.fsPath);
     const outputPath = path.join(resxDir, `${stem}.Designer.cs`);
     const outputUri = vscode.Uri.file(outputPath);
 
     // 1. Read resx names
-    const resxDoc = parseResx(doc.getText(), doc.uri.fsPath);
+    const resxDoc = parseResx(xmlText, docUri.fsPath);
     const resxNames = resxDoc.entries.map(e => e.name).sort();
 
     // 2. Read existing Designer.cs if present
@@ -152,8 +171,8 @@ async function regenerateDesignerCs(
     let existingRootNs = '';
     let existingSecondNs = '';
     try {
-      const bytes = await vscode.workspace.fs.readFile(outputUri);
-      const text = new TextDecoder('utf-8').decode(bytes);
+      const existingBytes = await vscode.workspace.fs.readFile(outputUri);
+      const text = new TextDecoder('utf-8').decode(existingBytes);
       existingNames = [...text.matchAll(/internal\s+static\s+string\s+(\w+)/g)].map(m => m[1]).sort();
       const nsMatch = text.match(/^namespace\s+([\S]+)/m);
       if (nsMatch) { existingRootNs = nsMatch[1]; }
@@ -169,8 +188,8 @@ async function regenerateDesignerCs(
     }
 
     // 4. Determine namespaces
-    const rootNs = determineRootNamespace(existingRootNs, config, doc.uri, wsFolder, stem);
-    const secondNs = determineSecondNamespace(existingSecondNs, config, doc.uri, wsFolder, stem);
+    const rootNs = determineRootNamespace(existingRootNs, config, docUri, wsFolder, stem);
+    const secondNs = determineSecondNamespace(existingSecondNs, config, docUri, wsFolder, stem);
 
     // 5. Generate content
     const content = generateDesignerCsContent(stem, rootNs, secondNs, resxNames, extensionVersion);
