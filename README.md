@@ -2,6 +2,11 @@
 
 Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in a unified grid view. 
 
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot02.jpg)
+
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot03.jpg)
+
+
 ## Features
 
 ### Automatically sync Designer.cs
@@ -22,8 +27,9 @@ Of course, we've got you covered. Select "Multi View" from the UI.
 ### Other Features
 
 - **Automatic locale detection** — Finds related `.resx` files in the same folder by naming convention (`Resources.resx`, `Resources.ja.resx`, `Resources.fr.resx`, …)
+- **Add/remove name keys** — Automatically applies to all language files
 - **Missing translation highlighting** — Untranslated entries (empty or identical to the default value) are visually flagged
-- **Switch to Normal Editor** — Please press "Open as Text".
+- **Switch to Normal Editor** — Please press "Open as Text"
 
 
 ## Getting Started
@@ -40,7 +46,7 @@ Open your workspace and set the default `Strings.resx` first. Right-click `Strin
 
 Note: Functions such as Designer.cs syncing depend on this default file. Auto-detection is currently not available, so this manual setup is strictly required.
 
-![Screenshot](images/screenshot01.png)
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot01.jpg)
 
 
 ## Commands
@@ -50,10 +56,9 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 | Command | Description |
 |---|---|
 | `RESX: Toggle Extension On/Off` | Enable or disable the custom editor |
-| `RESX: Change Font Family` | Override the editor font |
-| `RESX: Add New Locale` | Create a new `.resx` locale file |
-| `RESX: Refresh Locale Files` | Re-scan the folder for locale files |
-| `RESX: Sort Entries by Name` | Sort all rows A–Z across all locale files |
+| `RESX: Set as Default resx` | Set the default `Strings.resx` |
+| `RESX: Sort Default File Keys` | Sort all rows A–Z default file |
+| `RESX: Sort All File Keys` | Sort all rows A–Z across all locale files |
 
 ## Settings
 
@@ -62,20 +67,21 @@ All settings are scoped to the `resx.*` prefix.
 | Setting | Type | Default | Description |
 |---|---|---|---|
 | `resx.enabled` | `boolean` | `true` | Enable/disable the custom editor |
+| `resx.singleClickEdit` | `boolean` | `true` | Start editing on single click |
+| `resx.showSerialIndex` | `boolean` | `false` | Show index number column |
+| `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.fontFamily` | `string` | *(inherit)* | Override font family |
 | `resx.fontSize` | `number` | `0` | Override font size in px (`0` = inherit) |
 | `resx.mouseWheelZoom` | `boolean` | `true` | Enable Ctrl/Cmd + scroll zoom |
 | `resx.mouseWheelZoomInvert` | `boolean` | `false` | Invert zoom direction |
 | `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
-| `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
-| `resx.showSerialIndex` | `boolean` | `true` | Show index number column |
-| `resx.singleClickEdit` | `boolean` | `false` | Start editing on single click |
 | `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |
 
 
 ## Roadmap
 
-- [ ] Add new locales — Create new `.resx` locale files directly from the editor
+- Editor improvements
+- Integration with .cs and .xaml
 
 
 ## Release Notes
@@ -89,6 +95,12 @@ npm install
 npm run compile
 npm run package
 ```
+
+## Support This Project
+
+If you find this tool helpful, please consider supporting me on [ko-fi.com](https://ko-fi.com/hetima)
+
+Interested in the GLM Coding Plan? Sign up through [this referral link](https://z.ai/subscribe?ic=SNWYPM5SCL) to get 10% off
 
 ## License
 

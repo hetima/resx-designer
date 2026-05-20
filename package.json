@@ -57,12 +57,12 @@
         "title": "RESX: Sort Entries by Name"
       },
       {
-        "command": "resx.sortDefaultFileNames",
-        "title": "RESX: Sort Default File Names"
+        "command": "resx.sortDefaultFileKeys",
+        "title": "RESX: Sort Default File Keys"
       },
       {
-        "command": "resx.sortAllFileNames",
-        "title": "RESX: Sort All File Names"
+        "command": "resx.sortAllFileKeys",
+        "title": "RESX: Sort All File Keys"
       },
       {
         "command": "resx.debugClearState",

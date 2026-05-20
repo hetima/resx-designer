@@ -163,7 +163,7 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
     }),
 
     // Sort default file names (standalone command, immediate save)
-    vscode.commands.registerCommand("resx.sortDefaultFileNames", async () => {
+    vscode.commands.registerCommand("resx.sortDefaultFileKeys", async () => {
       const config = vscode.workspace.getConfiguration("resx");
       const defaultResx = config.get<string>("defaultResx", "");
       if (!defaultResx) {
@@ -193,7 +193,7 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
     }),
 
     // Sort all locale file names (standalone command, immediate save)
-    vscode.commands.registerCommand("resx.sortAllFileNames", async () => {
+    vscode.commands.registerCommand("resx.sortAllFileKeys", async () => {
       const config = vscode.workspace.getConfiguration("resx");
       const defaultResx = config.get<string>("defaultResx", "");
       if (!defaultResx) {

@@ -843,8 +843,8 @@ class ResxEditorController {
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
     const mouseWheelZoomEnabled = config.get<boolean>('mouseWheelZoom', true);
     const mouseWheelZoomInvert = config.get<boolean>('mouseWheelZoomInvert', false);
-    const singleClickEdit = config.get<boolean>('singleClickEdit', false);
-    const addSerialIndex = config.get<boolean>('showSerialIndex', true);
+    const singleClickEdit = config.get<boolean>("singleClickEdit", true);
+    const addSerialIndex = config.get<boolean>('showSerialIndex', false);
 
     const themeVars = getThemeCssVariables();
 
