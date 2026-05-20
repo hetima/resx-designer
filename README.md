@@ -1,17 +1,30 @@
 # resx-designer
 
-Multi-language .NET resource (`.resx`) editor for VS Code. Edit all locale files simultaneously in a unified grid view. Based on [jonaraphael/csv](https://github.com/jonaraphael/csv)
+Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in a unified grid view. 
 
 ## Features
 
-- **Multi-language grid view** — Open a `.resx` file and see all related locales side by side: `Name | Comment | (default) | ja | en | fr | …`
+### Automatically sync Designer.cs
+
+Designer.cs is synchronized automatically whenever you add or remove keys in Strings.resx. It also updates when saved by AI! You no longer need to run ResXFileCodeGenerator manually.
+
+**Regarding the namespace for newly created files**: If a Designer.cs file already exists, its current configuration will be reused. However, for a newly created file, the namespace is automatically generated from the workspace name and folder structure. In this case, please open the file and verify if it matches your project. You will need to check two places: the very top of the file and around line 20. Once you modify and save the file, the extension will read and preserve those custom values for subsequent updates.
+
+### Batch Edit Identical Names
+
+Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Right-click a row and select "Bulk Edit".
+
+### All Keys across All Languages
+
+"But what if I still need a massive cell matrix ?"  
+Of course, we've got you covered. Select "Multi View" from the UI.
+
+### Other Features
+
 - **Automatic locale detection** — Finds related `.resx` files in the same folder by naming convention (`Resources.resx`, `Resources.ja.resx`, `Resources.fr.resx`, …)
 - **Missing translation highlighting** — Untranslated entries (empty or identical to the default value) are visually flagged
-- **Edit & Navigate** — Quick edit, detail edit, keyboard navigation, multi-cell selection
-- **Find & Replace** — Search across all cells with regex, case, and whole-word support
-- **Zoom** — `Ctrl/Cmd + Mouse Wheel` or `Ctrl/Cmd + +/-/0`
-- **Add new locales** — Create new `.resx` locale files directly from the editor
-- **External change detection** — Automatically refreshes when related locale files are modified outside VS Code
+- **Switch to Normal Editor** — Please press "Open as Text".
+
 
 ## Getting Started
 
@@ -21,18 +34,14 @@ Multi-language .NET resource (`.resx`) editor for VS Code. Edit all locale files
 - Go to the Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X` on macOS).
 - Search for **resx-designer** and click **Install**.
 
-### 2. Open a RESX File
+### 2. Setup Required
 
-- Open any `.resx` file. If related locale files exist in the same folder (same base name), they are automatically loaded as columns.
+Open your workspace and set the default `Strings.resx` first. Right-click `Strings.resx` in the Explorer panel and run `RESX: Set as Default resx`. (Saved in `.vscode/settings.json`)
 
-### 3. Edit and Navigate
+Note: Functions such as Designer.cs syncing depend on this default file. Auto-detection is currently not available, so this manual setup is strictly required.
 
-- **Quick edit**: start typing on a selected cell. Press an Arrow key to save and move.
-- **Detail edit**: press `Enter` or double‑click a cell for full caret control. `Shift+Enter` for line breaks. Click outside or press Arrow Up/Down to save and exit.
-- **Keyboard Navigation**: Arrow keys to move, `Tab`/`Shift+Tab` for horizontal wrapping.
-- **Multi-Cell Selection**: Click and drag or `Shift + Click`. `Ctrl/Cmd + C` to copy.
-- **Find & Replace**: `Ctrl/Cmd + F` / `Ctrl/Cmd + H`.
-- **Right-click context menu**: Add/delete rows, sort, add new locale.
+![Screenshot](images/screenshot01.png)
+
 
 ## Commands
 
@@ -59,27 +68,15 @@ All settings are scoped to the `resx.*` prefix.
 | `resx.mouseWheelZoomInvert` | `boolean` | `false` | Invert zoom direction |
 | `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
-| `resx.showSerialIndex` | `boolean` | `true` | Show `#` column |
+| `resx.showSerialIndex` | `boolean` | `true` | Show index number column |
 | `resx.singleClickEdit` | `boolean` | `false` | Start editing on single click |
 | `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |
 
-## Editing Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| Arrow keys | Navigate cells |
-| `Tab` / `Shift+Tab` | Move right / left (wraps) |
-| `Enter` | Enter detail edit mode |
-| Any printable key | Enter quick edit mode |
-| `Shift+Enter` | New line inside detail edit |
-| `Ctrl/Cmd + C` | Copy selection |
-| `Ctrl/Cmd + F` | Find |
-| `Ctrl/Cmd + H` | Find & Replace |
-| `F3` / `Shift+F3` | Next / previous find match |
-| `Ctrl/Cmd + A` | Select all |
-| `Ctrl/Cmd + +/-/0` | Zoom in / out / reset |
-| `Ctrl/Cmd + Mouse Wheel` | Zoom |
-| `Escape` | Close find/replace or cancel edit |
+## Roadmap
+
+- [ ] Add new locales — Create new `.resx` locale files directly from the editor
+
 
 ## Release Notes
 
@@ -90,10 +87,12 @@ See full history in `CHANGELOG.md`.
 ```bash
 npm install
 npm run compile
-npm run lint
 npm run package
 ```
 
 ## License
 
-This extension is licensed under the [MIT License](LICENSE).
+This extension is licensed under the MIT License.
+
+
+This program is based on  [jonaraphael/csv](https://github.com/jonaraphael/csv)

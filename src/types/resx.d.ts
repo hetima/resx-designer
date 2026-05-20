@@ -172,3 +172,30 @@ export type WebviewToHostMessage =
   | WebviewSetViewModeMessage
   | WebviewBulkEditMessage
   | WebviewSetContextCellMessage;
+
+// ── Bulk Edit Custom Editor ──────────────────────────────────────
+
+/** Message from bulk-edit webview: a cell was edited */
+export interface BulkEditCellChangedMessage {
+  type: 'cellChanged';
+  locale: string | null;
+  value: string;
+}
+
+/** Message from bulk-edit webview: user wants to save all pending edits */
+export interface BulkEditSaveAllMessage {
+  type: 'saveAll';
+}
+
+/** Union of messages from the bulk-edit webview to the host */
+export type BulkEditWebviewMessage = BulkEditCellChangedMessage | BulkEditSaveAllMessage;
+
+/** Metadata stored in a .resxbulk temporary file (no values — always read from live files) */
+export interface BulkEditTempFileMetadata {
+  /** URI string of any .resx file in the locale set */
+  sourceUri: string;
+  /** The resource key being bulk-edited */
+  keyName: string;
+  /** True when the editor was closed gracefully (not a crash). */
+  closed?: boolean;
+}

@@ -158,6 +158,15 @@
             "filenamePattern": "*.resx"
           }
         ]
+      },
+      {
+        "viewType": "resx.bulkEdit",
+        "displayName": "RESX Bulk Edit",
+        "selector": [
+          {
+            "filenamePattern": "*.resxbulk"
+          }
+        ]
       }
     ],
     "menus": {
@@ -165,14 +174,14 @@
         {
           "command": "resx.setDefaultResx",
           "when": "resourceLangId == resx",
-          "group": "1_resx@1"
+          "group": "9_resx@1"
         }
       ],
       "editor/title/context": [
         {
           "command": "resx.setDefaultResx",
           "when": "resourceLangId == resx",
-          "group": "1_resx@1"
+          "group": "9_resx@1"
         }
       ],
       "webview/context": [

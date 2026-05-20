@@ -1,6 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
+import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
+import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
 
@@ -20,6 +22,18 @@ export function activate(context: vscode.ExtensionContext) {
       supportsMultipleEditorsPerDocument: false
     })
   );
+
+  // Register the bulk-edit custom editor provider
+  const bulkProvider = new BulkEditCustomEditorProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(BulkEditCustomEditorProvider.viewType, bulkProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+      supportsMultipleEditorsPerDocument: false
+    })
+  );
+
+  // Clean up bulk-edit temp files: delete closed ones, auto-restore unclosed (crash recovery)
+  cleanTempFiles(context);
 
   // Auto-refresh all open RESX editors when relevant settings change
   const refreshKeys = [
@@ -297,6 +311,43 @@ function generateDesignerCsContent(
   lines.push('}');
 
   return lines.join(eol) + eol;
+}
+
+// ── Bulk-Edit Temp File Cleanup ──────────────────────────────────────
+
+async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
+  const all = await BulkEditCustomEditorProvider.scanAllTempFiles(context);
+  if (all.length === 0) { return; }
+
+  const toDelete: vscode.Uri[] = [];
+  const toRestore: Array<{ uri: vscode.Uri; metadata: BulkEditTempFileMetadata }> = [];
+
+  for (const item of all) {
+    if (item.metadata.closed) {
+      toDelete.push(item.uri);
+    } else {
+      toRestore.push(item);
+    }
+  }
+
+  // Delete closed files silently
+  if (toDelete.length > 0) {
+    await BulkEditCustomEditorProvider.deleteOrphanedFiles(context, toDelete);
+  }
+
+  // Auto-restore unclosed files (crash recovery — no prompt needed)
+  for (const { uri, metadata } of toRestore) {
+    try {
+      await vscode.commands.executeCommand(
+        'vscode.openWith',
+        uri,
+        BulkEditCustomEditorProvider.viewType,
+        { viewColumn: vscode.ViewColumn.Beside }
+      );
+    } catch {
+      // could not restore — leave for next startup
+    }
+  }
 }
 
 export function deactivate() {}
