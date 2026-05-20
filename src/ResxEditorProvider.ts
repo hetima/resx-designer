@@ -434,6 +434,8 @@ class ResxEditorController {
           doc.entries = doc.entries.filter(e => e.name !== name);
           await this.writeResxFile(doc);
         }
+        // ApplyEdit makes the open document dirty — save before re-reading from disk
+        try { await this.document.save(); } catch {}
         // Reload again to reflect all deletions
         await this.loadLocaleSet();
       } else {
@@ -442,9 +444,11 @@ class ResxEditorController {
         if (currentDoc) {
           currentDoc.entries = currentDoc.entries.filter(e => e.name !== name);
           await this.writeResxFile(currentDoc);
+          // applyEdit makes the document dirty — save before re-reading from disk
+          try { await this.document.save(); } catch {}
+          // Reload locale set to reflect the change
+          await this.loadLocaleSet();
         }
-        // Reload locale set to reflect the change
-        await this.loadLocaleSet();
       }
 
       this.buildGrid();
