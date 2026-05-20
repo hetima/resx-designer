@@ -17,7 +17,7 @@ Designer.cs is synchronized automatically whenever you add or remove keys in Str
 
 ### Batch Edit Identical Names
 
-Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Right-click a row and select "Bulk Edit".
+Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Click the vertical ellipsis (kebab menu) at the far left of the row and select "Bulk Edit".
 
 ### All Keys across All Languages
 
