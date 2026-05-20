@@ -107,6 +107,7 @@ export interface WebviewSortRowsMessage {
 export interface WebviewAddLocaleMessage {
   type: 'addLocale';
   locale: string;
+  fillDefaults: boolean;
 }
 
 /** Copy selected text to clipboard */
@@ -164,6 +165,19 @@ export type WebviewToHostMessage =
   | WebviewSetViewModeMessage
   | WebviewBulkEditMessage
   | WebviewSetContextCellMessage;
+
+// ── Host → Webview messages ────────────────────────────────────
+
+/** Result of addLocale operation */
+export interface HostAddLocaleResultMessage {
+  type: 'addLocaleResult';
+  success: boolean;
+  locale: string;
+  message: string;
+  openUri?: string;
+}
+
+export type HostToWebviewMessage = HostAddLocaleResultMessage;
 
 // ── Bulk Edit Custom Editor ──────────────────────────────────────
 

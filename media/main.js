@@ -163,6 +163,10 @@ const restoreState = () => {
 
 // ── Toolbar buttons ────────────────────────────────────────────────
 
+document.getElementById('addLangBtn')?.addEventListener('click', () => {
+  try { window.__addLangDialog.open(); } catch {}
+});
+
 document.getElementById('viewModeBtn')?.addEventListener('click', () => {
   const btn = document.getElementById('viewModeBtn');
   const isSingle = btn?.textContent?.includes('Multi');
@@ -173,6 +177,116 @@ document.getElementById('viewModeBtn')?.addEventListener('click', () => {
 document.getElementById('openAsTextBtn')?.addEventListener('click', () => {
   vscode.postMessage({ type: 'openAsText' });
 });
+
+// ── Add Language dialog ─────────────────────────────────────────
+
+(function initAddLangDialog() {
+  let dialogEl = null;
+
+  const KNOWN_LOCALES = new Set([
+    'af','am','ar','as','az','be','bg','bn','bs','ca','cs','cy','da','de','dv','el',
+    'en','en-AU','en-CA','en-GB','en-IN','en-US','en-ZA','eo','es','es-ES','es-MX',
+    'et','eu','fa','fi','fo','fr','fr-CA','fr-FR','ga','gd','gl','gu','he','hi','hr',
+    'hu','hy','id','ig','is','it','ja','ka','kk','km','kn','ko','ku','ky','lb','lo',
+    'lt','lv','mk','ml','mn','mr','ms','mt','nb','ne','nl','nn','no','or','pa','pl',
+    'ps','pt','pt-BR','pt-PT','qu','ro','ru','rw','sd','si','sk','sl','so','sq','sr',
+    'sv','sw','ta','te','th','ti','tk','tl','tn','tr','tt','ug','uk','ur','uz','vi',
+    'wo','xh','yi','yo','zh','zh-CN','zh-Hans','zh-Hant','zh-HK','zh-TW','zu','ff',
+    'ha','ibb','ig','ku','nds','nl-BE','nn','pa','pap','sat','sd','sr-Cyrl','sr-Latn',
+    'szl','tg','tk','tok','tzm','uz','vec',
+  ]);
+
+  function isValidLocaleFormat(v) {
+    return /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]+)*$/.test(v);
+  }
+
+  function openDialog() {
+    if (dialogEl) { dialogEl.remove(); }
+
+    dialogEl = document.createElement('div');
+    dialogEl.className = 'add-lang-overlay';
+    dialogEl.innerHTML = `
+      <div class="add-lang-dialog">
+        <div class="add-lang-title">Add Language</div>
+        <div class="add-lang-field">
+          <input id="addLangInput" class="add-lang-input" type="text"
+                 placeholder="Locale code (e.g. ja, en-US, fr)" spellcheck="false"
+                 list="addLangSuggestions" autocomplete="off">
+          <datalist id="addLangSuggestions"></datalist>
+        </div>
+        <div id="addLangWarning" class="add-lang-warning"></div>
+        <label class="add-lang-checkbox-label">
+          <input id="addLangFillDefaults" type="checkbox" checked>
+          Copy default values
+        </label>
+        <div id="addLangMessage" class="add-lang-message"></div>
+        <div class="add-lang-buttons">
+          <button id="addLangOk" class="add-lang-btn">OK</button>
+          <button id="addLangCancel" class="add-lang-btn">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialogEl);
+
+    // Populate datalist
+    const datalist = document.getElementById('addLangSuggestions');
+    KNOWN_LOCALES.forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      datalist.appendChild(opt);
+    });
+
+    const input = document.getElementById('addLangInput');
+    const warnEl = document.getElementById('addLangWarning');
+    const msgEl = document.getElementById('addLangMessage');
+    const okBtn = document.getElementById('addLangOk');
+    const cancelBtn = document.getElementById('addLangCancel');
+
+    msgEl.textContent = '';
+    input.focus();
+
+    function updateWarning() {
+      const v = input.value.trim();
+      if (!v || !isValidLocaleFormat(v)) { warnEl.textContent = ''; return; }
+      warnEl.textContent = KNOWN_LOCALES.has(v) ? '' : '⚠ Unknown locale code';
+    }
+    input.addEventListener('input', updateWarning);
+
+    function closeDialog() {
+      if (dialogEl) { dialogEl.remove(); dialogEl = null; }
+    }
+
+    cancelBtn.addEventListener('click', closeDialog);
+    dialogEl.addEventListener('click', (e) => {
+      if (e.target === dialogEl) closeDialog();
+    });
+
+    okBtn.addEventListener('click', () => {
+      const locale = input.value.trim();
+      if (!locale) {
+        msgEl.textContent = 'Locale code is required.';
+        msgEl.classList.add('add-lang-error');
+        return;
+      }
+      if (!isValidLocaleFormat(locale)) {
+        msgEl.textContent = 'Invalid format. Use BCP-47 style (e.g. ja, en-US, zh-Hans).';
+        msgEl.classList.add('add-lang-error');
+        return;
+      }
+      const fillDefaults = document.getElementById('addLangFillDefaults').checked;
+      vscode.postMessage({ type: 'addLocale', locale, fillDefaults });
+      okBtn.disabled = true;
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') okBtn.click();
+      if (e.key === 'Escape') closeDialog();
+    });
+  }
+
+  // Expose close/result handler for the message listener
+  window.__addLangDialog = { open: openDialog, close: () => { if (dialogEl) { dialogEl.remove(); dialogEl = null; } } };
+})();
 
 // End toolbar buttons ──────────────────────────────────────────────
 
@@ -887,7 +1001,29 @@ window.addEventListener('message', event => {
       }
       break;
     case 'addLocale':
-      // Host echoes back – just re-search
+      // Legacy host echo – ignore
+      break;
+    case 'addLocaleResult':
+      if (msg.success) {
+        const msgEl = document.getElementById('addLangMessage');
+        if (msgEl) {
+          msgEl.textContent = msg.message;
+          msgEl.classList.remove('add-lang-error');
+          msgEl.classList.add('add-lang-success');
+        }
+        setTimeout(() => {
+          try { window.__addLangDialog.close(); } catch {}
+        }, 800);
+      } else {
+        const msgEl = document.getElementById('addLangMessage');
+        if (msgEl) {
+          msgEl.textContent = msg.message;
+          msgEl.classList.remove('add-lang-success');
+          msgEl.classList.add('add-lang-error');
+        }
+        const okBtn = document.getElementById('addLangOk');
+        if (okBtn) okBtn.disabled = false;
+      }
       break;
     case 'clearState':
       columnSizeState = {};
