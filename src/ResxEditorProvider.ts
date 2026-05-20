@@ -327,7 +327,10 @@ class ResxEditorController {
         await this.handleRenameKey(msg.row, msg.newName);
         break;
       case 'sortRows':
-        this.handleSortRows(msg.ascending);
+        this.handleSortRows(msg.ascending, true);
+        break;
+      case 'sortCurrentFile':
+        this.handleSortRows(msg.ascending, false);
         break;
       case 'addLocale':
         await this.handleAddLocale(msg.locale, msg.fillDefaults);
@@ -521,24 +524,36 @@ class ResxEditorController {
     await this.writeResxFile(doc);
   }
 
-  public handleSortRows(ascending: boolean): void {
+  public handleSortRows(ascending: boolean, writeImmediately: boolean = true): void {
     this.gridRows.sort((a, b) => {
       const cmp = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
       return ascending ? cmp : -cmp;
     });
 
-    // Rebuild entries in all locale files to match the sorted order
     if (this.localeSet) {
       this.isUpdating = true;
       try {
         const sortedNames = this.gridRows.map(r => r.name);
-        for (const [, doc] of this.localeSet.locales) {
-          const entryMap = new Map(doc.entries.map(e => [e.name, e]));
-          doc.entries = sortedNames
-            .map(name => entryMap.get(name))
-            .filter((e): e is ResxEntry => !!e);
-          // Append any entries not in the sorted list (shouldn't happen but safety)
-          this.writeResxFile(doc);
+
+        if (writeImmediately) {
+          // Sort all locale files and write to disk immediately
+          for (const [, doc] of this.localeSet.locales) {
+            const entryMap = new Map(doc.entries.map(e => [e.name, e]));
+            doc.entries = sortedNames
+              .map(name => entryMap.get(name))
+              .filter((e): e is ResxEntry => !!e);
+            this.writeResxFile(doc);
+          }
+        } else {
+          // Sort only the current file — set dirty flag via applyEdit
+          const currentDoc = this.localeSet.locales.get(this.currentLocale);
+          if (currentDoc) {
+            const entryMap = new Map(currentDoc.entries.map(e => [e.name, e]));
+            currentDoc.entries = sortedNames
+              .map(name => entryMap.get(name))
+              .filter((e): e is ResxEntry => !!e);
+            this.writeResxFile(currentDoc);
+          }
         }
       } finally {
         this.isUpdating = false;
@@ -742,12 +757,14 @@ class ResxEditorController {
       );
       this.isUpdating = true;
       try {
+        this.lastWrittenUris.add(uri.toString());
         const wsEdit = new vscode.WorkspaceEdit();
         wsEdit.replace(this.document.uri, fullRange, xml);
         const success = await vscode.workspace.applyEdit(wsEdit);
         if (!success) {
           await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
         }
+        setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
       } finally {
         this.isUpdating = false;
       }
@@ -938,6 +955,7 @@ class ResxEditorController {
         <button id="addLangBtn" title="Add a new language column">+ New Lang</button>
         <button id="addKeyBtn" title="Add a new resource key">+ New Key</button>
       </div>
+      <button id="sortAZBtn" title="Sort Names A-Z">Sort A-Z</button>
       <button id="viewModeBtn" title="${this.viewMode === 'single' ? 'Show all locale columns' : 'Show single file columns'}">${this.viewMode === 'single' ? 'Multi View' : 'Single View'}</button>
       <button id="openAsTextBtn" title="Open this file in the default text editor">Open as Text</button>
     </div>

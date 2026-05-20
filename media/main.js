@@ -171,6 +171,10 @@ document.getElementById('addKeyBtn')?.addEventListener('click', () => {
   try { window.__addKeyDialog.open(); } catch {}
 });
 
+document.getElementById('sortAZBtn')?.addEventListener('click', () => {
+  vscode.postMessage({ type: 'sortCurrentFile', ascending: true });
+});
+
 document.getElementById('viewModeBtn')?.addEventListener('click', () => {
   const btn = document.getElementById('viewModeBtn');
   const isSingle = btn?.textContent?.includes('Multi');

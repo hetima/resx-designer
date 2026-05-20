@@ -57,6 +57,14 @@
         "title": "RESX: Sort Entries by Name"
       },
       {
+        "command": "resx.sortDefaultFileNames",
+        "title": "RESX: Sort Default File Names"
+      },
+      {
+        "command": "resx.sortAllFileNames",
+        "title": "RESX: Sort All File Names"
+      },
+      {
         "command": "resx.debugClearState",
         "title": "RESX: Debug Clear Workspace State"
       },

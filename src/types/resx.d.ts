@@ -110,6 +110,12 @@ export interface WebviewAddLocaleMessage {
   fillDefaults: boolean;
 }
 
+/** Sort the current file's entries by name (dirty only, no immediate save) */
+export interface WebviewSortCurrentFileMessage {
+  type: 'sortCurrentFile';
+  ascending: boolean;
+}
+
 /** Add a new resource key (row) by name */
 export interface WebviewAddKeyMessage {
   type: 'addKey';
@@ -165,6 +171,7 @@ export type WebviewToHostMessage =
   | WebviewDeleteRowsMessage
   | WebviewRenameKeyMessage
   | WebviewSortRowsMessage
+  | WebviewSortCurrentFileMessage
   | WebviewAddLocaleMessage
   | WebviewAddKeyMessage
   | WebviewCopyMessage

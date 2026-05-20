@@ -3,6 +3,9 @@ import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { openBulkEditPanel } from './bulk-edit-panel';
+import { parseResx } from './resx-parser';
+import { serializeResx } from './resx-writer';
+import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -144,7 +147,7 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage("RESX: Refreshed locale files.");
     }),
 
-    // Sort entries alphabetically
+    // Sort entries alphabetically (all locale files, immediate save)
     vscode.commands.registerCommand("resx.sortByName", async () => {
       const active = ResxEditorProvider.getActiveProvider();
       if (!active) {
@@ -153,19 +156,76 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         );
         return;
       }
-      const panel = (active as any).currentWebviewPanel;
-      if (panel) {
-        panel.webview.postMessage({
-          type: "sortRows",
-          ascending: true,
-          row: -1,
-          col: -1,
-          value: "",
-        });
-      }
+      active.handleSortRows(true, true);
       vscode.window.showInformationMessage(
         "RESX: Sorted entries by name (A-Z).",
       );
+    }),
+
+    // Sort default file names (standalone command, immediate save)
+    vscode.commands.registerCommand("resx.sortDefaultFileNames", async () => {
+      const config = vscode.workspace.getConfiguration("resx");
+      const defaultResx = config.get<string>("defaultResx", "");
+      if (!defaultResx) {
+        vscode.window.showErrorMessage("RESX: resx.defaultResx is not configured.");
+        return;
+      }
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders) {
+        vscode.window.showErrorMessage("RESX: No workspace folder open.");
+        return;
+      }
+      const filePath = path.join(folders[0].uri.fsPath, defaultResx);
+      const uri = vscode.Uri.file(filePath);
+      try {
+        await vscode.workspace.fs.stat(uri);
+      } catch {
+        vscode.window.showErrorMessage(`RESX: File not found: ${defaultResx}`);
+        return;
+      }
+      const content = await vscode.workspace.fs.readFile(uri);
+      const xmlText = new TextDecoder('utf-8').decode(content);
+      const doc = parseResx(xmlText, filePath);
+      doc.entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      const xml = serializeResx(doc);
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
+      vscode.window.showInformationMessage(`RESX: Sorted ${defaultResx} by name.`);
+    }),
+
+    // Sort all locale file names (standalone command, immediate save)
+    vscode.commands.registerCommand("resx.sortAllFileNames", async () => {
+      const config = vscode.workspace.getConfiguration("resx");
+      const defaultResx = config.get<string>("defaultResx", "");
+      if (!defaultResx) {
+        vscode.window.showErrorMessage("RESX: resx.defaultResx is not configured.");
+        return;
+      }
+      const folders = vscode.workspace.workspaceFolders;
+      if (!folders) {
+        vscode.window.showErrorMessage("RESX: No workspace folder open.");
+        return;
+      }
+      const filePath = path.join(folders[0].uri.fsPath, defaultResx);
+      const uri = vscode.Uri.file(filePath);
+      try {
+        await vscode.workspace.fs.stat(uri);
+      } catch {
+        vscode.window.showErrorMessage(`RESX: File not found: ${defaultResx}`);
+        return;
+      }
+      const localeSet = await findRelatedResxFiles(uri);
+      if (!localeSet) {
+        vscode.window.showErrorMessage(`RESX: Could not load locale set from ${defaultResx}`);
+        return;
+      }
+      let count = 0;
+      for (const [, doc] of localeSet.locales) {
+        doc.entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        const xml = serializeResx(doc);
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(doc.path), new TextEncoder().encode(xml));
+        count++;
+      }
+      vscode.window.showInformationMessage(`RESX: Sorted ${count} file(s) by name.`);
     }),
 
     // Debug: clear all workspace & global state (column sizes, row sizes, view mode, etc.)
