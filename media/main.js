@@ -701,6 +701,37 @@ document.addEventListener('keydown', e => {
     return;
   }
 
+  // PageUp / PageDown / Home / End → scroll the table
+  if (e.key === 'PageUp' || e.key === 'PageDown' || e.key === 'Home' || e.key === 'End') {
+    if (scrollContainer) {
+      e.preventDefault();
+      const pageSize = scrollContainer.clientHeight;
+      switch (e.key) {
+        case 'PageUp':
+          scrollContainer.scrollTop -= pageSize;
+          break;
+        case 'PageDown':
+          scrollContainer.scrollTop += pageSize;
+          break;
+        case 'Home':
+          if (e.ctrlKey) {
+            scrollContainer.scrollTop = 0;
+          } else {
+            scrollContainer.scrollTop = 0;
+          }
+          break;
+        case 'End':
+          if (e.ctrlKey) {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          } else {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+          }
+          break;
+      }
+    }
+    return;
+  }
+
   // Any other printable character → quick edit
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (currentSelection.length === 1) {
