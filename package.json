@@ -17,15 +17,6 @@
     "Programming Languages",
     "Other"
   ],
-  "activationEvents": [
-    "onLanguage:resx",
-    "onCommand:resx.toggleExtension",
-    "onCommand:resx.changeFontFamily",
-    "onCommand:resx.addLocale",
-    "onCommand:resx.refreshLocales",
-    "onCommand:resx.sortByName",
-    "onCommand:resx.setDefaultResx"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
@@ -33,7 +24,15 @@
         "id": "resx",
         "extensions": [".resx"],
         "aliases": ["RESX", "resx"],
+        "firstLine": "^\\s*<\\?xml\\b",
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "resx",
+        "scopeName": "text.xml",
+        "path": "./xml.tmLanguage.json"
       }
     ],
     "commands": [

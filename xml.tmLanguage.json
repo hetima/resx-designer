@@ -1,0 +1,128 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "XML",
+  "scopeName": "text.xml",
+  "patterns": [
+    { "include": "#xml_declaration" },
+    { "include": "#comment" },
+    { "include": "#doctype" },
+    { "include": "#cdata" },
+    { "include": "#processing_instruction" },
+    { "include": "#tag" },
+    { "include": "#entity_ref" }
+  ],
+  "repository": {
+    "xml_declaration": {
+      "name": "meta.tag.xml",
+      "begin": "(<\\?)\\s*xml",
+      "end": "\\?>",
+      "beginCaptures": { "1": { "name": "punctuation.definition.tag.xml" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.xml" } },
+      "patterns": [
+        { "include": "#xml_attrs" },
+        { "match": "\\?", "name": "punctuation.definition.tag.xml" }
+      ]
+    },
+    "doctype": {
+      "name": "meta.tag.xml",
+      "begin": "(<!)DOCTYPE",
+      "end": ">",
+      "beginCaptures": { "1": { "name": "punctuation.definition.tag.xml" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.xml" } },
+      "patterns": [
+        { "include": "#internal_subset" }
+      ]
+    },
+    "internal_subset": {
+      "contentName": "meta.internalsubset.xml",
+      "begin": "\\[",
+      "end": "\\]",
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#entity_decl" }
+      ]
+    },
+    "comment": {
+      "begin": "<!--",
+      "end": "-->",
+      "name": "comment.block.xml",
+      "captures": {
+        "0": { "name": "punctuation.definition.comment.xml" }
+      }
+    },
+    "cdata": {
+      "begin": "<!\\[CDATA\\[",
+      "end": "\\]\\]>",
+      "name": "string.unquoted.cdata.xml"
+    },
+    "processing_instruction": {
+      "begin": "(<\\?)\\w+",
+      "end": "\\?>",
+      "beginCaptures": { "1": { "name": "punctuation.definition.tag.xml" } },
+      "endCaptures": { "0": { "name": "punctuation.definition.tag.xml" } },
+      "name": "meta.tag.preprocessor.xml"
+    },
+    "entity_ref": {
+      "match": "(&)([a-zA-Z0-9:#_-]+)(;)",
+      "captures": {
+        "1": { "name": "punctuation.definition.entity.xml" },
+        "2": { "name": "entity.name.tag.xml" },
+        "3": { "name": "punctuation.definition.entity.xml" }
+      }
+    },
+    "tag": {
+      "name": "meta.tag.xml",
+      "begin": "(</?)([\\w:_-]+)",
+      "end": "(/?>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.xml" },
+        "2": { "name": "entity.name.tag.xml" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.tag.xml" },
+        "1": { "name": "punctuation.definition.tag.xml" }
+      },
+      "patterns": [
+        { "include": "#xml_attrs" }
+      ]
+    },
+    "xml_attrs": {
+      "patterns": [
+        {
+          "match": "(\\w[\\w:._-]*)(=)",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.xml" },
+            "2": { "name": "punctuation.separator.key-value.xml" }
+          }
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.xml",
+          "patterns": [
+            { "include": "#entity_ref" }
+          ]
+        },
+        {
+          "begin": "'",
+          "end": "'",
+          "name": "string.quoted.single.xml",
+          "patterns": [
+            { "include": "#entity_ref" }
+          ]
+        }
+      ]
+    },
+    "entity_decl": {
+      "match": "(<!)(ENTITY)\\s+(%\\s+)?([\\w_-]+)\\s+(\"[^\"]*\"|'[^']*')\\s*(>)",
+      "captures": {
+        "1": { "name": "punctuation.definition.tag.xml" },
+        "2": { "name": "keyword.other.entity.xml" },
+        "3": { "name": "punctuation.definition.entity.xml" },
+        "4": { "name": "entity.name.tag.xml" },
+        "5": { "name": "string.quoted.double.xml" },
+        "6": { "name": "punctuation.definition.tag.xml" }
+      }
+    }
+  }
+}
