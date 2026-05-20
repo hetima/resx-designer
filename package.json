@@ -71,11 +71,6 @@
       {
         "command": "resx.setDefaultResx",
         "title": "RESX: Set as Default resx"
-      },
-      {
-        "command": "resx.bulkEdit",
-        "title": "Bulk Edit",
-        "icon": "$(split-horizontal)"
       }
     ],
     "configuration": {
@@ -179,13 +174,6 @@
           "command": "resx.setDefaultResx",
           "when": "resourceLangId == resx",
           "group": "9_resx@1"
-        }
-      ],
-      "webview/context": [
-        {
-          "command": "resx.bulkEdit",
-          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
-          "group": "1_edit@3"
         }
       ]
     }

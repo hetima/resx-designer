@@ -2,7 +2,6 @@ import * as path from 'path';
 import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
-import { openBulkEditPanel } from './bulk-edit-panel';
 import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';
@@ -320,20 +319,5 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       },
     ),
 
-    vscode.commands.registerCommand("resx.bulkEdit", async (e: any) => {
-      const active = ResxEditorProvider.getActiveProvider();
-      if (!active) {
-        return;
-      }
-      const ctx = active.getContextCell();
-      if (!e || !e.name) {
-        return;
-      }
-      await openBulkEditPanel(
-        (active as any).context,
-        active.getDocumentUri(),
-        e.name,
-      );
-    }),
   );
 }
