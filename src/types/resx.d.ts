@@ -123,13 +123,6 @@ export interface WebviewFindMessage {
   options: { regex: boolean; wholeWord: boolean; matchCase: boolean };
 }
 
-/** Replace matched cells */
-export interface WebviewReplaceMatchesMessage {
-  type: 'replaceMatches';
-  requestId: number;
-  replacements: Array<{ row: number; col: number; value: string }>;
-}
-
 /** Open current file in default text editor */
 export interface WebviewOpenAsTextMessage {
   type: 'openAsText';
@@ -167,7 +160,6 @@ export type WebviewToHostMessage =
   | WebviewAddLocaleMessage
   | WebviewCopyMessage
   | WebviewFindMessage
-  | WebviewReplaceMatchesMessage
   | WebviewOpenAsTextMessage
   | WebviewSetViewModeMessage
   | WebviewBulkEditMessage

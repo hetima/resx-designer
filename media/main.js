@@ -527,14 +527,7 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // Ctrl/Cmd+H → Replace
-  if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
-    e.preventDefault();
-    openFindReplace();
-    return;
-  }
-
-  // Escape → close find/replace or cancel edit
+    // Escape → close find or cancel edit
   if (e.key === 'Escape') {
     if (findWidget && findWidget.classList.contains('open')) {
       closeFind();
@@ -756,11 +749,7 @@ const findCloseBtn = document.getElementById('findClose');
 const findCaseToggle = document.getElementById('findCaseToggle');
 const findWordToggle = document.getElementById('findWordToggle');
 const findRegexToggle = document.getElementById('findRegexToggle');
-const replaceToggle = document.getElementById('replaceToggle');
-const replaceToggleGutter = document.getElementById('replaceToggleGutter');
-const replaceInput = document.getElementById('replaceInput');
-const replaceOneBtn = document.getElementById('replaceOne');
-const replaceAllBtn = document.getElementById('replaceAll');
+
 
 const clearFindHighlights = () => {
   table.querySelectorAll('.highlight, .active-match').forEach(el => {
@@ -795,14 +784,11 @@ const updateFindUI = () => {
     findNextBtn.disabled = true;
     findPrevBtn.disabled = true;
     replaceOneBtn.disabled = true;
-    replaceAllBtn.disabled = true;
     return;
   }
   findStatus.textContent = `${findMatchIndex + 1} of ${total}`;
   findNextBtn.disabled = false;
   findPrevBtn.disabled = false;
-  replaceOneBtn.disabled = false;
-  replaceAllBtn.disabled = false;
 
   // Highlight active match
   clearFindHighlights();
@@ -834,18 +820,10 @@ const navigateFindMatch = (dir) => {
 
 const openFind = () => {
   if (!findWidget) return;
-  findWidget.classList.remove('replace-collapsed');
   findWidget.classList.add('open');
   findInput.focus();
   findInput.select();
   if (findInput.value) doFind();
-};
-
-const openFindReplace = () => {
-  openFind();
-  if (!findWidget) return;
-  findWidget.classList.remove('replace-collapsed');
-  replaceToggle.setAttribute('aria-expanded', 'true');
 };
 
 const closeFind = () => {
@@ -880,38 +858,6 @@ findRegexToggle?.addEventListener('click', () => {
   findRegexToggle.setAttribute('aria-pressed', String(findRegex));
   doFind();
 });
-replaceToggle?.addEventListener('click', () => {
-  const expanded = replaceToggle.getAttribute('aria-expanded') === 'true';
-  replaceToggle.setAttribute('aria-expanded', String(!expanded));
-  findWidget.classList.toggle('replace-collapsed');
-});
-replaceOneBtn?.addEventListener('click', () => {
-  if (!findMatches[findMatchIndex]) return;
-  const match = findMatches[findMatchIndex];
-  const replaceValue = replaceInput.value;
-  findRequestId++;
-  vscode.postMessage({
-    type: 'replaceMatches',
-    requestId: findRequestId,
-    replacements: [{ row: match.row, col: match.col, value: replaceValue }],
-    row: -1, col: -1, value: ''
-  });
-  doFind(); // re-search
-});
-replaceAllBtn?.addEventListener('click', () => {
-  if (!findMatches.length) return;
-  const replaceValue = replaceInput.value;
-  const replacements = findMatches.map(m => ({ row: m.row, col: m.col, value: replaceValue }));
-  findRequestId++;
-  vscode.postMessage({
-    type: 'replaceMatches',
-    requestId: findRequestId,
-    replacements,
-    row: -1, col: -1, value: ''
-  });
-  doFind();
-});
-
 // ── Host → Webview messages ───────────────────────────────────────
 
 window.addEventListener('message', event => {

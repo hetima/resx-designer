@@ -47,8 +47,7 @@ export function getThemeCssVariables(): string {
   const frLines: string[] = [
     `--fr-bg:               var(--vscode-editorWidget-background);`,
     `--fr-border:           var(--vscode-editorWidget-border);`,
-    `--fr-gutter-bg:        var(--vscode-sideBar-background);`,
-    `--fr-gutter-border:    var(--vscode-widget-border);`,
+
     `--fr-input-bg:         var(--vscode-input-background);`,
     `--fr-input-fg:         var(--vscode-input-foreground);`,
     `--fr-input-border:     var(--vscode-input-border);`,
@@ -65,8 +64,6 @@ export function getThemeCssVariables(): string {
     `--fr-close-hover-bg:   var(--vscode-list-hoverBackground);`,
     `--fr-close-hover-fg:   var(--vscode-editorWidget-foreground);`,
     `--fr-divider-separator: var(--vscode-editorWidget-border);`,
-    `--fr-overflow-bg:      var(--vscode-menu-background, var(--vscode-editorWidget-background));`,
-    `--fr-overflow-border:  var(--vscode-menu-border, var(--vscode-editorWidget-border));`,
   ];
 
   return [...lines, ...frLines].map(v => `    ${v}`).join('\n');

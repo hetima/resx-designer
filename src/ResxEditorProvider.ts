@@ -338,9 +338,6 @@ class ResxEditorController {
       case 'findMatches':
         await this.handleFindMatches(msg.requestId, msg.query, msg.options);
         break;
-      case 'replaceMatches':
-        await this.handleReplaceMatches(msg.requestId, msg.replacements);
-        break;
       case 'openAsText':
         if (this.currentWebviewPanel) {
           await this.openWithDefaultEditorAndClose(this.currentWebviewPanel);
@@ -576,29 +573,6 @@ class ResxEditorController {
     this.updateWebviewContent();
   }
 
-  // ── Editability helpers ──────────────────────────────────────────
-
-  /** Returns true if the cell at the given physical column index is user-editable. */
-  private isCellEditable(physCol: number): boolean {
-    const column = this.columns[physCol];
-    if (!column) { return false; }
-
-    // Index column is always read-only
-    if (column.kind === 'index') { return false; }
-
-    // Multi mode: everything except index is editable
-    if (this.viewMode === 'multi') { return true; }
-
-    // Single mode + default file: all non-index cells editable
-    if (this.currentLocale === null) { return true; }
-
-    // Single mode + non-default file: lock name and default locale columns
-    if (column.kind === 'name') { return false; }
-    if (column.kind === 'locale' && column.locale === null) { return false; }
-
-    return true;
-  }
-
   private async handleFindMatches(
     requestId: number,
     query: string,
@@ -635,7 +609,6 @@ class ResxEditorController {
         }))
       ];
       for (const cell of cellValues) {
-        if (!this.isCellEditable(cell.col)) { continue; }
         regex.lastIndex = 0;
         if (regex.test(cell.value)) {
           matches.push({ row: r, col: cell.col, value: cell.value });
@@ -645,22 +618,6 @@ class ResxEditorController {
 
     this.currentWebviewPanel.webview.postMessage({
       type: 'findMatchesResult', requestId, matches, invalidRegex: false
-    });
-  }
-
-  private async handleReplaceMatches(
-    requestId: number,
-    replacements: Array<{ row: number; col: number; value: string }>
-  ): Promise<void> {
-    if (!replacements.length) { return; }
-
-    for (const repl of replacements) {
-      if (!this.isCellEditable(repl.col)) { continue; }
-      await this.handleEditCell(repl.row, repl.col, repl.value);
-    }
-
-    this.currentWebviewPanel?.webview.postMessage({
-      type: 'replaceMatchesResult', requestId
     });
   }
 
@@ -828,8 +785,8 @@ class ResxEditorController {
       :root {
     ${themeVars}
       }
-      body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 0; user-select: none; }
-      .table-container { overflow: auto; height: calc(100vh - 33px); }
+      body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 8px 0 0 0; user-select: none; }
+      .table-container { overflow: auto; height: calc(100vh - 41px); }
       table { border-collapse: collapse; width: max-content; }
       th, td { padding: ${cellPadding}px 8px; border: 1px solid var(--resx-border); font-size: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       th { position: sticky; top: 0; background-color: var(--resx-body); z-index: 10; user-select: none; }
@@ -853,12 +810,9 @@ class ResxEditorController {
         color: var(--fr-fg); font-family: ${this.escapeCss(fontFamily)}; font-size: inherit;
       }
       #findReplaceWidget.open { display: flex; }
-      #findReplaceWidget .fr-gutter { width: 24px; min-width: 24px; border-radius: 6px; background: var(--fr-gutter-bg); border-right: 1px solid var(--fr-gutter-border); margin-right: 10px; display: flex; align-items: center; justify-content: center; }
       #findReplaceWidget .fr-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-      #findReplaceWidget.replace-collapsed .fr-row-replace { display: none; }
       #findReplaceWidget .fr-row { display: flex; align-items: center; gap: 8px; }
-      #findReplaceWidget .fr-row-find .fr-input-wrap { flex: 0 0 calc(25ch + 118px); width: calc(25ch + 118px); }
-      #findReplaceWidget .fr-row-replace .fr-input-wrap { flex: 0 0 calc(25ch + 54px); width: calc(25ch + 54px); }
+      #findReplaceWidget .fr-row .fr-input-wrap { flex: 0 0 calc(25ch + 118px); width: calc(25ch + 118px); }
       #findReplaceWidget .fr-input-wrap { position: relative; flex: 1 1 auto; min-width: 0; }
       #findReplaceWidget .fr-input { width: 100%; height: 36px; box-sizing: border-box; border: 1px solid var(--fr-input-border); border-radius: 6px; background: var(--fr-input-bg); color: var(--fr-input-fg); padding-left: 10px; font-size: inherit; outline: none; }
       #findReplaceWidget .fr-input::placeholder { color: var(--fr-input-placeholder); }
@@ -880,7 +834,7 @@ class ResxEditorController {
       #findReplaceWidget .fr-overflow-menu.open { display: block; }
       #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: var(--fr-fg); border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
       #findReplaceWidget .fr-overflow-item:hover { background: var(--fr-btn-hover-bg); }
-      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); }
+      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); }
       #toolbar button { padding: 2px 10px; border: 1px solid var(--resx-btn-border); border-radius: 3px; background: var(--resx-btn-bg); color: var(--resx-btn-fg); font-size: 12px; cursor: pointer; white-space: nowrap; }
       #toolbar button:hover { background: var(--resx-btn-hover); }
     </style>
@@ -903,12 +857,9 @@ class ResxEditorController {
     </div>
     <script id="__csvChunks" type="application/json" nonce="${nonce}">[]</script>
     <script id="__resxColumns" type="application/json" nonce="${nonce}">${columnsJson}</script>
-    <div id="findReplaceWidget" class="replace-collapsed" role="group" aria-label="Find and Replace">
-      <div id="replaceToggleGutter" class="fr-gutter">
-        <button id="replaceToggle" class="fr-caret-btn" type="button" aria-label="Toggle Replace" aria-expanded="false">›</button>
-      </div>
+    <div id="findReplaceWidget" role="group" aria-label="Find">
       <div class="fr-content">
-        <div class="fr-row fr-row-find">
+        <div class="fr-row">
           <div class="fr-input-wrap">
             <input id="findInput" class="fr-input" type="text" placeholder="Find" aria-label="Find">
             <div class="fr-inline-toggles">
@@ -922,23 +873,6 @@ class ResxEditorController {
           <button id="findPrev" class="fr-icon-btn" type="button" aria-label="Previous Match" title="Previous Match" disabled>↑</button>
           <button id="findNext" class="fr-icon-btn" type="button" aria-label="Next Match" title="Next Match" disabled>↓</button>
           <button id="findClose" class="fr-icon-btn fr-close-btn" type="button" aria-label="Close Find and Replace" title="Close">✕</button>
-        </div>
-        <div class="fr-row fr-row-replace">
-          <div class="fr-input-wrap">
-            <input id="replaceInput" class="fr-input" type="text" placeholder="Replace" aria-label="Replace">
-            <div class="fr-inline-toggles">
-              <button id="replaceCaseToggle" class="fr-toggle-btn" type="button" aria-label="Preserve Case" aria-pressed="false" title="Preserve Case">AB</button>
-            </div>
-          </div>
-          <div class="fr-actions">
-            <button id="replaceOne" class="fr-action-btn" type="button" aria-label="Replace" title="Replace" disabled>↵</button>
-            <button id="replaceAll" class="fr-action-btn" type="button" aria-label="Replace All" title="Replace All" disabled>⇅</button>
-          </div>
-        </div>
-        <div id="findOverflowMenu" class="fr-overflow-menu" role="menu" aria-label="Find Options">
-          <button id="findOverflowSelection" class="fr-overflow-item" type="button" role="menuitem">Find in selection</button>
-          <button id="findOverflowDiacritics" class="fr-overflow-item" type="button" role="menuitem">Match diacritics</button>
-          <button id="findOverflowPreserveCase" class="fr-overflow-item" type="button" role="menuitem">Toggle preserve case</button>
         </div>
       </div>
     </div>
