@@ -166,6 +166,7 @@ class ResxEditorController {
     // Build columns: index, name, comment, then each locale
     this.columns = [];
     this.columns.push({ kind: 'index', locale: null, label: '#' });
+    this.columns.push({ kind: 'action', locale: null, label: '' });
     this.columns.push({ kind: 'name', locale: null, label: 'Name' });
     this.columns.push({ kind: 'comment', locale: null, label: 'Comment' });
     for (const loc of sortedLocales) {
@@ -226,7 +227,7 @@ class ResxEditorController {
     const visible: Array<ResxGridColumn & { physicalIndex: number }> = [];
     for (let i = 0; i < this.columns.length; i++) {
       const c = this.columns[i];
-      if (c.kind === 'index' || c.kind === 'name' || c.kind === 'comment') {
+      if (c.kind === 'index' || c.kind === 'action' || c.kind === 'name' || c.kind === 'comment') {
         visible.push({ ...c, physicalIndex: i });
       } else if (c.kind === 'locale') {
         // Show default locale column and current file's locale column
@@ -880,8 +881,8 @@ class ResxEditorController {
       :root {
     ${themeVars}
       }
-      body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 8px 0 0 0; user-select: none; }
-      .table-container { overflow: auto; height: calc(100vh - 41px); }
+      body { font-family: ${this.escapeCss(fontFamily)}; font-size: ${fontSize}px; margin: 0; padding: 0; user-select: none; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+      .table-container { overflow: auto; flex: 1; }
       table { border-collapse: collapse; width: max-content; }
       th, td { padding: ${cellPadding}px 8px; border: 1px solid var(--resx-border); font-size: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       th { position: sticky; top: 0; background-color: var(--resx-body); z-index: 10; user-select: none; }
@@ -898,6 +899,15 @@ class ResxEditorController {
       .value-col { min-width: 80px; width: 160px; max-width: 180px; }
       .index-col { min-width: 40px; max-width: 50px; color: var(--resx-index-fg); text-align: right; }
       .comment-col { min-width: 60px; width: 120px; max-width: 120px; }
+      .action-col { min-width: 24px; width: 24px; max-width: 24px; text-align: center; padding: 0 2px; cursor: pointer; }
+      .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
+      .action-col:hover .action-icon { opacity: 1; }
+      .action-menu-overlay { position: fixed; inset: 0; z-index: 9998; }
+      .action-menu { position: fixed; z-index: 9999; min-width: 200px; background: var(--resx-body); border: 1px solid var(--resx-border); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.25); padding: 4px; color: var(--resx-fg); font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size: 13px; }
+      .action-menu-label { padding: 6px 10px; font-weight: 600; font-size: 12px; color: var(--resx-fg); opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--resx-border); margin-bottom: 2px; }
+      .action-menu-item { width: 100%; border: none; background: transparent; color: var(--resx-fg); border-radius: 4px; text-align: left; padding: 5px 10px; cursor: pointer; font-size: 13px; font-family: inherit; display: flex; align-items: center; gap: 8px; }
+      .action-menu-item:hover { background: var(--resx-header-btn-hover-bg); }
+      .action-menu-item.disabled { opacity: 0.4; pointer-events: none; }
       #findReplaceWidget {
         position: fixed; top: 12px; right: 20px; width: 592px; min-width: 592px; max-width: 592px;
         background: var(--fr-bg); border: 1px solid var(--fr-border); border-radius: 8px; padding: 10px;
@@ -929,7 +939,7 @@ class ResxEditorController {
       #findReplaceWidget .fr-overflow-menu.open { display: block; }
       #findReplaceWidget .fr-overflow-item { width: 100%; border: 0; background: transparent; color: var(--fr-fg); border-radius: 4px; text-align: left; padding: 6px 8px; cursor: pointer; font-size: inherit; }
       #findReplaceWidget .fr-overflow-item:hover { background: var(--fr-btn-hover-bg); }
-      #toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); }
+      #toolbar { position: relative; z-index: 20; display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 6px 8px; background: var(--resx-header-bg); border-bottom: 1px solid var(--resx-toolbar-border); flex-shrink: 0; }
       #toolbar .toolbar-start { display: flex; align-items: center; gap: 8px; margin-right: auto; }
       #toolbar button { padding: 4px 10px; border: 1px solid var(--resx-border); border-radius: 3px; background: var(--resx-header-btn-bg); color: var(--resx-header-btn-fg); font-size: 13px; cursor: pointer; white-space: nowrap; }
       #toolbar button:hover { background: var(--resx-header-btn-hover-bg); border-color: var(--resx-fg); }
@@ -1014,6 +1024,8 @@ class ResxEditorController {
         } else {
           html += `<th class="index-col" style="display:none;" data-col="${physIdx}"></th>`;
         }
+      } else if (vc.kind === 'action') {
+        html += `<th class="action-col" data-col="${physIdx}"></th>`;
       } else if (vc.kind === 'name') {
         html += `<th class="name-col" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}>${this.escapeHtml(vc.label)}</th>`;
       } else if (vc.kind === 'comment') {
@@ -1042,6 +1054,8 @@ class ResxEditorController {
           } else {
             html += `<td class="index-col" style="display:none;" data-row="${r}" data-col="${physIdx}"></td>`;
           }
+        } else if (vc.kind === 'action') {
+          html += `<td class="action-col" data-row="${r}" data-col="${physIdx}" data-name="${this.escapeAttr(row.name)}"><span class="action-icon">⋮</span></td>`;
         } else if (vc.kind === 'name') {
           html += `<td class="name-col" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}}>${this.escapeHtml(row.name)}</td>`;
         } else if (vc.kind === 'comment') {

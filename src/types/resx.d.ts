@@ -38,7 +38,7 @@ export interface ResxLocaleSet {
 /**
  * Column descriptor for the merged grid view.
  */
-export type ResxColumnKind = 'index' | 'name' | 'comment' | 'locale';
+export type ResxColumnKind = 'index' | 'name' | 'comment' | 'locale' | 'action';
 
 export interface ResxGridColumn {
   kind: ResxColumnKind;

@@ -412,6 +412,7 @@ const getCellTarget = target => {
 };
 const isColumnHeaderCell = cell => cell && cell.tagName === 'TH' && cell.getAttribute('data-col') !== '-1' && cell.getAttribute('data-col') !== null;
 const isRowIndexCell = cell => cell && cell.classList && cell.classList.contains('index-col');
+const isActionCell = cell => cell && cell.classList && cell.classList.contains('action-col');
 
 const getSelectedRowIds = () => {
   const ids = currentSelection
@@ -451,7 +452,7 @@ const selectCell = (cell, extend = false) => {
   if (!cell) return;
   if (editingCell && editingCell !== cell) commitEdit();
   const { row, col } = getCellCoords(cell);
-  if (isRowIndexCell(cell) || (hasHeader && isColumnHeaderCell(cell))) return; // skip index/header cells
+  if (isRowIndexCell(cell) || isActionCell(cell) || (hasHeader && isColumnHeaderCell(cell))) return; // skip index/action/header cells
 
   if (extend && anchorCell) {
     rangeEndCell = cell;
@@ -500,7 +501,7 @@ const commitEdit = () => {
 const enterEditMode = (cell, mode) => {
   if (!cell) return;
   const { row, col } = getCellCoords(cell);
-  if (isRowIndexCell(cell) || isColumnHeaderCell(cell)) return;
+  if (isRowIndexCell(cell) || isActionCell(cell) || isColumnHeaderCell(cell)) return;
   if (cell.hasAttribute('data-readonly')) return;
 
   if (editingCell && editingCell !== cell) commitEdit();
@@ -601,7 +602,7 @@ table?.addEventListener('mousedown', e => {
   const { row, col } = getCellCoords(cell);
 
   if (e.button !== 0) return;
-  if (isColumnHeaderCell(cell) || isRowIndexCell(cell)) return;
+  if (isColumnHeaderCell(cell) || isRowIndexCell(cell) || isActionCell(cell)) return;
 
   mouseDownPos = { x: e.clientX, y: e.clientY };
   isDragging = false;
@@ -635,7 +636,7 @@ document.addEventListener('mousemove', e => {
   }
   if (isSelecting) {
     const target = getCellTarget(e.target);
-    if (target && !isRowIndexCell(target)) {
+    if (target && !isRowIndexCell(target) && !isActionCell(target)) {
       endCell = target;
     }
   }
@@ -679,8 +680,79 @@ document.addEventListener('mouseup', e => {
 // Handle double-click → detail edit
 table?.addEventListener('dblclick', e => {
   const cell = getCellTarget(e.target);
-  if (cell && !isRowIndexCell(cell)) {
+  if (cell && !isRowIndexCell(cell) && !isActionCell(cell)) {
     enterEditMode(cell, 'detail');
+  }
+});
+
+// ── Action column context menu ────────────────────────────────────
+
+let actionMenuEl = null;
+let actionMenuOverlay = null;
+
+const closeActionMenu = () => {
+  if (actionMenuOverlay) { actionMenuOverlay.remove(); actionMenuOverlay = null; }
+  if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+};
+
+const openActionMenu = (cell, clientX, clientY) => {
+  closeActionMenu();
+  const name = cell.getAttribute('data-name') || '';
+
+  actionMenuOverlay = document.createElement('div');
+  actionMenuOverlay.className = 'action-menu-overlay';
+  document.body.appendChild(actionMenuOverlay);
+
+  actionMenuEl = document.createElement('div');
+  actionMenuEl.className = 'action-menu';
+  actionMenuEl.innerHTML = `
+    <div class="action-menu-label" title="${name.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}">${name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <button class="action-menu-item" data-action="bulkEdit">✏ Bulk Edit</button>
+  `;
+  document.body.appendChild(actionMenuEl);
+
+  // Position: ensure it stays within viewport
+  const rect = actionMenuEl.getBoundingClientRect();
+  let x = clientX;
+  let y = clientY;
+  if (x + 200 > window.innerWidth) x = window.innerWidth - 210;
+  if (y + rect.height > window.innerHeight) y = clientY - rect.height;
+  actionMenuEl.style.left = x + 'px';
+  actionMenuEl.style.top = y + 'px';
+
+  // Menu item actions
+  actionMenuEl.querySelectorAll('.action-menu-item[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const action = btn.getAttribute('data-action');
+      if (action === 'bulkEdit') {
+        vscode.postMessage({ type: 'bulkEdit', name });
+      }
+      closeActionMenu();
+    });
+  });
+
+  // Close on overlay click
+  actionMenuOverlay.addEventListener('click', closeActionMenu);
+
+  // Close on Escape
+  const onKey = e => {
+    if (e.key === 'Escape') { closeActionMenu(); document.removeEventListener('keydown', onKey); }
+  };
+  document.addEventListener('keydown', onKey);
+};
+
+table?.addEventListener('click', e => {
+  const cell = getCellTarget(e.target);
+  if (!cell || !isActionCell(cell)) return;
+  e.stopPropagation();
+  openActionMenu(cell, e.clientX, e.clientY);
+});
+
+// Close menu on any other click outside
+document.addEventListener('click', e => {
+  if (actionMenuEl && !actionMenuEl.contains(e.target)) {
+    closeActionMenu();
   }
 });
 
@@ -694,7 +766,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault();
     clearSelection();
     table.querySelectorAll('tbody td').forEach(td => {
-      if (!isRowIndexCell(td)) {
+      if (!isRowIndexCell(td) && !isActionCell(td)) {
         td.classList.add('selected');
         currentSelection.push(td);
       }
@@ -848,7 +920,7 @@ document.addEventListener('keydown', e => {
   if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
     if (currentSelection.length === 1) {
       const cell = currentSelection[0];
-      if (!isRowIndexCell(cell)) {
+      if (!isRowIndexCell(cell) && !isActionCell(cell)) {
         enterEditMode(cell, 'quick');
         // Clear existing content and insert the typed character
         cell.textContent = e.key;
@@ -887,7 +959,7 @@ const navigateCell = (direction) => {
   }
 
   const target = table.querySelector(`td[data-row="${targetRow}"][data-col="${targetCol}"]`);
-  if (target && !isRowIndexCell(target)) {
+  if (target && !isRowIndexCell(target) && !isActionCell(target)) {
     selectCell(target, false);
     try { target.focus({ preventScroll: false }); } catch {}
     target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -899,7 +971,7 @@ const navigateCell = (direction) => {
 const copySelection = () => {
   if (!currentSelection.length) return;
   const cells = currentSelection
-    .filter(el => !isRowIndexCell(el))
+    .filter(el => !isRowIndexCell(el) && !isActionCell(el))
     .map(el => ({ ...getCellCoords(el), text: el.textContent || '' }))
     .sort((a, b) => a.row - b.row || a.col - b.col);
 
