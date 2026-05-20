@@ -185,16 +185,6 @@
       ],
       "webview/context": [
         {
-          "command": "resx.addRowBelow",
-          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
-          "group": "1_edit@1"
-        },
-        {
-          "command": "resx.deleteRows",
-          "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
-          "group": "1_edit@2"
-        },
-        {
           "command": "resx.bulkEdit",
           "when": "activeCustomEditorId == 'resx.editor' && webviewSection == 'resxrow'",
           "group": "1_edit@3"
