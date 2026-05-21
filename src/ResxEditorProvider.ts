@@ -194,12 +194,13 @@ class ResxEditorController {
     }
 
     this.gridRows = nameOrder.map(name => {
-      const row: ResxGridRow = { name, comment: '', values: new Map() };
+      const row: ResxGridRow = { name, comment: '', values: new Map(), definedIn: new Set() };
       for (const loc of sortedLocales) {
         const doc = this.localeSet!.locales.get(loc)!;
         const entry = doc.entries.find(e => e.name === name);
         if (entry) {
           row.values.set(loc, entry.value);
+          row.definedIn.add(loc);
           // Use comment from whichever file has it (prefer default/null)
           if (entry.comment && (!row.comment || loc === null)) {
             row.comment = entry.comment;
@@ -1058,7 +1059,8 @@ class ResxEditorController {
         } else if (vc.kind === 'action') {
           html += `<td class="action-col" data-row="${r}" data-col="${physIdx}" data-name="${this.escapeAttr(row.name)}"><span class="action-icon">⋮</span></td>`;
         } else if (vc.kind === 'name') {
-          html += `<td class="name-col" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}}>${this.escapeHtml(row.name)}</td>`;
+          const nameMissingClass = (this.highlightMissing && !row.definedIn.has(currentLocale) && !row.definedIn.has(null)) ? ' missing-translation' : '';
+          html += `<td class="name-col${nameMissingClass}" data-row="${r}" data-col="${physIdx}"${lockNameAndDefault ? ' data-readonly' : ''}>${this.escapeHtml(row.name)}</td>`;
         } else if (vc.kind === 'comment') {
           html += `<td class="comment-col" data-row="${r}" data-col="${physIdx}">${this.escapeHtml(row.comment)}</td>`;
         } else if (vc.kind === 'locale') {

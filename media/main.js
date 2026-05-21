@@ -437,6 +437,8 @@ const isMissingTranslation = (row, col) => {
 
 const updateMissingHighlight = (cell, row, col) => {
   if (!isResxMode) return;
+  // name-col の missing-translation はホスト側が付与するので触らない
+  if (cell.classList.contains('name-col')) return;
   if (isMissingTranslation(row, col)) {
     cell.classList.add('missing-translation');
   } else {
@@ -1114,15 +1116,22 @@ const copySelection = () => {
   const minC = Math.min(...cells.map(c => c.col));
   const maxC = Math.max(...cells.map(c => c.col));
 
+  const csvEscape = (val) => {
+    if (val.includes(',') || val.includes('"') || val.includes('\n') || val.includes('\r')) {
+      return '"' + val.replace(/"/g, '""') + '"';
+    }
+    return val;
+  };
+
   let text = '';
   for (let r = minR; r <= maxR; r++) {
     const rowCells = cells.filter(c => c.row === r);
     const parts = [];
     for (let c = minC; c <= maxC; c++) {
       const cell = rowCells.find(cc => cc.col === c);
-      parts.push(cell ? cell.text : '');
+      parts.push(csvEscape(cell ? cell.text : ''));
     }
-    text += parts.join('\t');
+    text += parts.join(',');
     if (r < maxR) text += '\n';
   }
 

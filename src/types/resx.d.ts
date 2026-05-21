@@ -58,6 +58,8 @@ export interface ResxGridRow {
   comment: string;
   /** locale → value; missing locales are absent */
   values: Map<string | null, string>;
+  /** Locales where this key is originally defined */
+  definedIn: Set<string | null>;
 }
 
 /**
