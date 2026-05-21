@@ -176,6 +176,7 @@ export class TestEditProvider {
     /* Column classes */
     .index-col { min-width: 40px; max-width: 50px; color: var(--resx-index-fg, var(--resx-fg)); text-align: right; }
     .action-col { min-width: 24px; width: 24px; max-width: 24px; text-align: center; padding: 0 2px; cursor: pointer; }
+    .action-col-header { min-width: 24px; width: 24px; max-width: 24px; text-align: center; padding: 0 2px; }
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
     .action-col:hover .action-icon { opacity: 1; }
     .name-col { min-width: 60px; width: 180px; max-width: 180px; }
@@ -240,7 +241,7 @@ export class TestEditProvider {
         const th = document.createElement('th');
         th.dataset.col = idx;
         if (col.kind === 'index') th.className = 'index-col';
-        else if (col.kind === 'action') th.className = 'action-col';
+        else if (col.kind === 'action') th.className = 'action-col-header';
         else if (col.kind === 'name') th.className = 'name-col';
         else if (col.kind === 'comment') th.className = 'comment-col';
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
@@ -344,8 +345,11 @@ export class TestEditProvider {
 
       selectCell(td);
       if (td.classList.contains('editable') && singleClickEdit) {
-        startEditing(td);
-        focusEnd(td);
+        if (!editing.has(td)) {
+          startEditing(td);
+          focusEnd(td);
+        }
+        // 編集中はクリック位置にカーソルを維持（focusEndしない）
       }
     });
 
