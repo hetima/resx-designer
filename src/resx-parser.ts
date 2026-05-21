@@ -40,7 +40,8 @@ export function parseResx(xmlText: string, filePath: string): ResxDocument {
 
     // Extract <value>
     const valueMatch = body.match(/<value>([\s\S]*?)<\/value>/);
-    const value = valueMatch ? decodeXmlEntities(valueMatch[1].trim()) : '';
+    // no need to trim value text content; preserve leading/trailing whitespace as-is since it may be significant.  Just decode entities.
+    const value = valueMatch ? decodeXmlEntities(valueMatch[1]) : '';
 
     // Extract <comment>
     const commentMatch = body.match(/<value>\s*([\s\S]*?)\s*<\/value>[\s\S]*?<comment>([\s\S]*?)<\/comment>/);
