@@ -22,8 +22,13 @@
     "languages": [
       {
         "id": "resx",
-        "extensions": [".resx"],
-        "aliases": ["RESX", "resx"],
+        "extensions": [
+          ".resx"
+        ],
+        "aliases": [
+          "RESX",
+          "resx"
+        ],
         "firstLine": "^\\s*<\\?xml\\b",
         "configuration": "./language-configuration.json"
       }
@@ -134,8 +139,13 @@
           "description": "Soft max size in MB for opening files in RESX view. 0 disables the limit."
         },
         "resx.defaultResx": {
-          "type": ["string", "array"],
-          "items": { "type": "string" },
+          "type": [
+            "string",
+            "array"
+          ],
+          "items": {
+            "type": "string"
+          },
           "description": "Path relative to workspace root of the .resx file(s) that trigger Designer.cs generation on save. Accepts a single path or an array of paths. Falls back to any file named Strings.resx when unconfigured.",
           "scope": "resource"
         }
@@ -183,7 +193,10 @@
     "vscode:prepublish": "npm run compile",
     "lint": "eslint '**/*.ts'",
     "package": "vsce package",
-    "test": "npm run compile && node --test out/test"
+    "test": "npm run compile && node --test out/test",
+    "build:webview": "esbuild src/webview/main.js --bundle --outfile=media/main.js --minify --sourcemap",
+    "watch:webview": "esbuild src/webview/main.js --bundle --outfile=media/main.js --sourcemap --watch"
+
   },
   "dependencies": {
     "font-list": "^1.5.1"
@@ -194,6 +207,7 @@
     "@typescript-eslint/eslint-plugin": "^7.9.0",
     "@typescript-eslint/parser": "^7.9.0",
     "@vscode/vsce": "^3.7.1",
+    "esbuild": "^0.28.0",
     "eslint": "^8.57.0",
     "typescript": "^4.4.3",
     "vscode": "^1.1.37"
