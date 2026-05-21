@@ -14,8 +14,15 @@ Before making changes, agents should always review:
 - `src/resx-config.ts`: Shared helpers for `resx.defaultResx` setting — `normalizeDefaultResxList()` and `isDefaultResx()`. The setting accepts `string | string[]` and falls back to `Strings.resx` when unconfigured.
 - `src/commands.ts`: Command registrations (`resx.toggleExtension`, `resx.addLocale`, etc.).
 - `src/types/resx.d.ts`: Type definitions for RESX data model and webview messages.
-- `src/webview/main.js`: Webview-side JavaScript source (selection, editing, find/replace, zoom, context menu).
-- `media/main.js`: **esbuild output** — do not edit directly. Built from `src/webview/main.js`.
+- `src/webview/index.js`: Webview entry point — initializes theme, state persistence, toolbar, and host message handler.
+- `src/webview/shared.js`: Shared dependencies for webview modules — vscode API, DOM refs, config constants, cell helpers.
+- `src/webview/state.js`: State management — zoom, column/row sizes, persistence (`persistState`, `restoreState`).
+- `src/webview/selection.js`: Selection engine — cell select, edit engine, navigation, copy.
+- `src/webview/mouse.js`: Mouse handlers — drag selection, column resize, action menu.
+- `src/webview/commands.js`: Keyboard handlers — shortcuts, navigation keys, editing keys.
+- `src/webview/find.js`: Find & Replace widget UI.
+- `src/webview/dialogs.js`: Dialogs — Add Language, Add Key, Insert Key, Delete Key.
+- `media/main.js`: **esbuild output** — do not edit directly. Built from `src/webview/index.js` (bundles all `src/webview/*.js` modules).
 - `out/`: Transpiled JavaScript output.
 - `images/`: Marketplace icon and screenshots.
 - `package.json`: Activation events, commands, settings, and scripts.
@@ -24,7 +31,7 @@ Before making changes, agents should always review:
 - `npm install`: Install dependencies.
 - `npm ci`: Clean, reproducible install (preferred in CI/local verification).
 - `npm run compile`: TypeScript → `out/` via `tsc`.
-- `npm run build:webview`: esbuild bundles `src/webview/main.js` → `media/main.js` (minified + sourcemap).
+- `npm run build:webview`: esbuild bundles `src/webview/index.js` → `media/main.js` (minified + sourcemap).
 - `npm run watch:webview`: esbuild watch mode for webview source (auto-rebuild on change).
 - `npm run lint`: ESLint over `**/*.ts` using `eslint.config.mjs`.
 - `npm test`: Compile, then run Node's test runner on `out/test`.
@@ -37,7 +44,7 @@ Before making changes, agents should always review:
 ## Mandatory Verification
 - After any code change, run `npm run compile` before sending the final response.
 - Skip this only for docs-only changes or when the user explicitly asks to skip compile.
-- When editing webview source (`src/webview/main.js`), also run `npm run build:webview` to rebuild `media/main.js`.
+- When editing webview source (`src/webview/*.js`), also run `npm run build:webview` to rebuild `media/main.js`.
 - Run `npm test` when behavior changes.
 
 ## Dependency Policy
@@ -56,5 +63,5 @@ Before making changes, agents should always review:
 
 ## Security & Configuration
 - Webview: escape all user data before injecting HTML; avoid `eval`/inline scripts.
-- `media/main.js` is a generated artifact — always edit `src/webview/main.js` and rebuild.
+- `media/main.js` is a generated artifact — always edit `src/webview/*.js` and rebuild.
 - Settings: use `resx.*` keys declared in `package.json` and respect `resx.enabled`.
