@@ -310,6 +310,22 @@ export class TestEditProvider {
       }
     }
 
+    // ── Editing state ──────────────────────────────────────────
+
+    function startEditing(td) {
+      if (editing.has(td)) return;
+      if (!singleClickEdit) td.contentEditable = 'true';
+      editing.add(td);
+      td.classList.add('editing');
+    }
+
+    function stopEditing(td) {
+      if (!editing.has(td)) return;
+      if (!singleClickEdit) td.contentEditable = 'false';
+      editing.delete(td);
+      td.classList.remove('editing');
+    }
+
     // ── Selection ──────────────────────────────────────────────
 
     let selectedTd = null;
@@ -327,8 +343,8 @@ export class TestEditProvider {
       if (!td) return;
 
       selectCell(td);
-      if (td.classList.contains('editable') && singleClickEdit && !editing.has(td)) {
-        editing.add(td);
+      if (td.classList.contains('editable') && singleClickEdit) {
+        startEditing(td);
         focusEnd(td);
       }
     });
@@ -340,7 +356,7 @@ export class TestEditProvider {
         const td = e.target.closest('td.editable');
         if (!td) return;
         td.contentEditable = 'true';
-        editing.add(td);
+        startEditing(td);
         selectCell(td);
         focusEnd(td);
       });
@@ -353,10 +369,8 @@ export class TestEditProvider {
       if (!td || !editing.has(td)) return;
       // Keep editing state when singleClickEdit; restore otherwise
       if (!singleClickEdit) {
-        // Only restore if focus left the table entirely
         if (!tbody.contains(document.activeElement)) {
-          td.contentEditable = 'false';
-          editing.delete(td);
+          stopEditing(td);
         }
       }
     });
@@ -401,7 +415,9 @@ export class TestEditProvider {
       }
 
       // 編集モードの振る舞い（編集中セルのみ）
-      if (active && active.contentEditable === 'true' && isEditing) {
+      const _activeTd = active?.closest('td');
+      const _isEditingActive = _activeTd && editing.has(_activeTd);
+      if (_isEditingActive && active.contentEditable === 'true') {
         if (window.getSelection()?.toString()) {
           return; // テキスト選択中 — ブラウザに任せる
         }
@@ -409,7 +425,7 @@ export class TestEditProvider {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
       }
 
-      const td = active?.closest('td') || selectedTd;
+      const td = _activeTd || selectedTd;
       if (!td) return;
       const isEditing = editing.has(td);
 
@@ -423,9 +439,8 @@ export class TestEditProvider {
           const target = next.children[colIdx];
           if (target) {
             selectCell(target);
-            if (target.classList.contains('editable') && !singleClickEdit && !editing.has(target)) {
-              target.contentEditable = 'true';
-              editing.add(target);
+            if (target.classList.contains('editable') && !editing.has(target)) {
+              startEditing(target);
             }
             target.focus();
             if (editing.has(target)) focusEnd(target);
@@ -460,22 +475,32 @@ export class TestEditProvider {
         return;
       }
 
-      // Enter: next row same column
+      // Enter: 編集中なら確定して次のセルへ、非編集中なら編集開始
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        const tr = td.closest('tr');
-        const next = tr.nextElementSibling;
-        if (next) {
-          const colIdx = parseInt(td.dataset.col, 10);
-          const target = next.children[colIdx];
-          if (target) {
-            selectCell(target);
-            if (target.classList.contains('editable') && !singleClickEdit && !editing.has(target)) {
-              target.contentEditable = 'true';
-              editing.add(target);
+        if (isEditing) {
+          // 確定: 次のセルへ移動
+          stopEditing(td);
+          const tr = td.closest('tr');
+          const next = tr.nextElementSibling;
+          if (next) {
+            const colIdx = parseInt(td.dataset.col, 10);
+            const target = next.children[colIdx];
+            if (target) {
+              selectCell(target);
+              if (target.classList.contains('editable')) {
+                startEditing(target);
+                focusEnd(target);
+              } else {
+                target.focus();
+              }
             }
-            target.focus();
-            if (editing.has(target)) focusEnd(target);
+          }
+        } else {
+          // 非編集中: 編集開始（editableなら）
+          if (td.classList.contains('editable')) {
+            startEditing(td);
+            focusEnd(td);
           }
         }
         return;
@@ -490,10 +515,10 @@ export class TestEditProvider {
           const colIdx = parseInt(td.dataset.col, 10);
           const target = next.children[colIdx];
           if (target) {
+            if (isEditing) stopEditing(td);
             selectCell(target);
-            if (target.classList.contains('editable') && !singleClickEdit && !editing.has(target)) {
-              target.contentEditable = 'true';
-              editing.add(target);
+            if (target.classList.contains('editable') && !editing.has(target)) {
+              startEditing(target);
             }
             target.focus();
             if (editing.has(target)) focusEnd(target);
@@ -504,15 +529,18 @@ export class TestEditProvider {
 
       // Escape: cancel edit
       if (e.key === 'Escape') {
-        const rowIdx = parseInt(td.dataset.row, 10);
-        const colIdx = parseInt(td.dataset.col, 10);
-        const col = columns[colIdx];
-        let original = '';
-        if (col.kind === 'name') original = rows[rowIdx].name;
-        else if (col.kind === 'comment') original = rows[rowIdx].comment;
-        else if (col.kind === 'locale') original = rows[rowIdx].values[col.locale] || '';
-        td.textContent = original;
-        td.blur();
+        if (isEditing) {
+          const rowIdx = parseInt(td.dataset.row, 10);
+          const colIdx = parseInt(td.dataset.col, 10);
+          const col = columns[colIdx];
+          let original = '';
+          if (col.kind === 'name') original = rows[rowIdx].name;
+          else if (col.kind === 'comment') original = rows[rowIdx].comment;
+          else if (col.kind === 'locale') original = rows[rowIdx].values[col.locale] || '';
+          td.textContent = original;
+          stopEditing(td);
+          td.blur();
+        }
         selectCell(null);
         return;
       }
