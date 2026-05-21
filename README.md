@@ -11,7 +11,7 @@ Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in 
 
 ### Automatically sync Designer.cs
 
-Designer.cs is synchronized automatically whenever you add or remove keys in Strings.resx. It also updates when saved by AI! You no longer need to run ResXFileCodeGenerator manually.
+Designer.cs is synchronized automatically whenever you add or remove keys in `Strings.resx`. It also updates when saved by AI! You no longer need to run ResXFileCodeGenerator manually.
 
 **Regarding the namespace for newly created files**: If a Designer.cs file already exists, its current configuration will be reused. However, for a newly created file, the namespace is automatically generated from the workspace name and folder structure. In this case, please open the file and verify if it matches your project. You will need to check two places: the very top of the file and around line 20. Once you modify and save the file, the extension will read and preserve those custom values for subsequent updates.
 
@@ -44,7 +44,9 @@ Of course, we've got you covered. Select "Multi View" from the UI.
 
 Open your workspace and set the default `Strings.resx` first. Right-click `Strings.resx` in the Explorer panel and run `RESX: Set as Default resx`. (Saved in `.vscode/settings.json`)
 
-Note: Functions such as Designer.cs syncing depend on this default file. Auto-detection is currently not available, so this manual setup is strictly required.
+Note: Functions such as Designer.cs syncing depend on this default file. While the tool is designed to work even if left unconfigured, we recommend setting it up for safety.  
+Also, if there are multiple default `Strings.resx` files in your workspace, open `.vscode\settings.json` and specify an array of strings for the `resx.defaultResx` key (Please note: This is an experimental feature and may cause unexpected issues).
+
 
 ![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot01.jpg)
 
