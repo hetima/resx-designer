@@ -13,14 +13,14 @@ import { getThemeCssVariables } from './theme-colors';
 // ─── Dummy data (multi-column, like ResxEditor) ──────────────────
 
 const DUMMY_COLUMNS = [
-  { kind: 'index' as const, locale: null, label: '#', editable: false },
-  { kind: 'action' as const, locale: null, label: '', editable: false },
-  { kind: 'name' as const, locale: null, label: 'Name', editable: false },
-  { kind: 'comment' as const, locale: null, label: 'Comment', editable: false },
-  { kind: 'locale' as const, locale: null, label: 'default', editable: true },
-  { kind: 'locale' as const, locale: 'ja', label: 'ja', editable: true },
-  { kind: 'locale' as const, locale: 'fr', label: 'fr', editable: true },
-  { kind: 'locale' as const, locale: 'de', label: 'de', editable: true },
+  { kind: 'index' as const, locale: null, label: '#', editable: false, resizable: false },
+  { kind: 'action' as const, locale: null, label: '', editable: false, resizable: false },
+  { kind: 'name' as const, locale: null, label: 'Name', editable: false, resizable: true },
+  { kind: 'comment' as const, locale: null, label: 'Comment', editable: false, resizable: true },
+  { kind: 'locale' as const, locale: null, label: 'default', editable: true, resizable: true },
+  { kind: 'locale' as const, locale: 'ja', label: 'ja', editable: true, resizable: true },
+  { kind: 'locale' as const, locale: 'fr', label: 'fr', editable: true, resizable: true },
+  { kind: 'locale' as const, locale: 'de', label: 'de', editable: true, resizable: true },
 ];
 
 const DUMMY_ROWS = [
@@ -191,6 +191,20 @@ export class TestEditProvider {
 
     /* VS Code theme selection colors */
     td::selection, td *::selection { background: var(--resx-selection-bg); color: var(--resx-selection-fg); }
+
+    /* Column resize handle */
+    th { position: relative; }
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 1;
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--vscode-focusBorder); opacity: 0.6; }
   </style>
 </head>
 <body data-singleclickedit="${singleClickEdit}">
@@ -246,6 +260,12 @@ export class TestEditProvider {
         else if (col.kind === 'comment') th.className = 'comment-col';
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
         th.textContent = col.label;
+        if (col.resizable) {
+          const handle = document.createElement('div');
+          handle.className = 'resize-handle';
+          handle.dataset.col = idx;
+          th.appendChild(handle);
+        }
         tr.appendChild(th);
       });
       thead.appendChild(tr);
@@ -563,6 +583,47 @@ export class TestEditProvider {
         }
         styleEl.textContent = ':root { ' + msg.cssVars + ' }';
       }
+    });
+
+    // ── Column resize ───────────────────────────────────────────
+
+    let resizing = null; // { colIdx, startX, startWidth, th, handle }
+
+    thead.addEventListener('mousedown', (e) => {
+      const handle = e.target.closest('.resize-handle');
+      if (!handle) return;
+      e.preventDefault();
+      const colIdx = parseInt(handle.dataset.col, 10);
+      const th = handle.closest('th');
+      resizing = { colIdx, startX: e.clientX, startWidth: th.offsetWidth, th, handle };
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!resizing) return;
+      const delta = e.clientX - resizing.startX;
+      const newWidth = Math.max(40, resizing.startWidth + delta);
+      // th の幅を変更
+      resizing.th.style.width = newWidth + 'px';
+      resizing.th.style.minWidth = newWidth + 'px';
+      resizing.th.style.maxWidth = newWidth + 'px';
+      // 同列の td の幅も変更
+      const tds = tbody.querySelectorAll('tr td:nth-child(' + (resizing.colIdx + 1) + ')');
+      tds.forEach(td => {
+        td.style.width = newWidth + 'px';
+        td.style.minWidth = newWidth + 'px';
+        td.style.maxWidth = newWidth + 'px';
+      });
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!resizing) return;
+      resizing.handle.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      resizing = null;
     });
 
     // ── Init ───────────────────────────────────────────────────
