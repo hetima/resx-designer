@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
+import { TestEditProvider } from './TestEditProvider';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
@@ -31,6 +32,12 @@ export function activate(context: vscode.ExtensionContext) {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: false
     })
+  );
+
+  // Register the test-edit provider (development sandbox)
+  const testProvider = new TestEditProvider(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('resx.testEdit', () => testProvider.open())
   );
 
   // Clean up bulk-edit temp files: delete closed ones, auto-restore unclosed (crash recovery)

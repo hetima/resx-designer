@@ -76,6 +76,10 @@
       {
         "command": "resx.setDefaultResx",
         "title": "RESX: Set as Default resx"
+      },
+      {
+        "command": "resx.testEdit",
+        "title": "RESX: Test Edit"
       }
     ],
     "configuration": {
