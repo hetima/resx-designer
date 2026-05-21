@@ -85,7 +85,7 @@ export class TestEditProvider {
       { enableScripts: true }
     );
 
-    this.panel.webview.html = this.buildHtml();
+    this.panel.webview.html = this.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
 
     this.panel.onDidDispose(() => { this.panel = undefined; });
 
@@ -101,7 +101,7 @@ export class TestEditProvider {
 
   // ── Webview HTML ────────────────────────────────────────────────
 
-  private buildHtml(): string {
+  private buildHtml(columns: any[], rows: any[]): string {
     const config = vscode.workspace.getConfiguration('resx');
     const fontFamily = config.get<string>('fontFamily', '');
     const fontSize = config.get<number>('fontSize', 0);
@@ -115,8 +115,8 @@ export class TestEditProvider {
     const fontSizeStr = fontSize > 0 ? `${fontSize}px` : 'inherit';
     const nonce = this.getNonce();
 
-    const columnsJson = JSON.stringify(DUMMY_COLUMNS);
-    const rowsJson = JSON.stringify(DUMMY_ROWS);
+    const columnsJson = JSON.stringify(columns);
+    const rowsJson = JSON.stringify(rows);
 
     return `<!DOCTYPE html>
 <html lang="en">

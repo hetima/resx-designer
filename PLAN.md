@@ -33,21 +33,19 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 
 | ステップ | 内容 | 状態 |
 |---------|------|------|
-| 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ⬜ |
+| 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ✅ |
 | 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ⬜拡張したため動かなくなった |
 | 1-E | Action menu（⋮） | ⬜ |
 | 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ⬜ |
 | 1-G | Dialogs（Add Language, Add Key） | ⬜ |
 | 1-H | Find & Replace UI 枠（ハイライトロジックは後） | ⬜ |
-| 1-I | コピー機能の copyToClipboard に統一 | ⬜ |
+| 1-I | コピー機能 | ✅ |
 | 1-J | 検索機能 | ⬜ |
 
 ### 各ステップの詳細
 
 #### 1-B: 列ごとの editing 制御
-- `data-readonly` 属性で列・セル単位に編集不可を指定
-- `name-col`, `comment-col`, `locale-col` は `contentEditable='true'`（readonlyではない場合）
-- `index-col`, `action-col` は常に編集不可
+- `editable` 属性で列・セル単位に編集不可を指定
 - `singleClickEdit` 設定との兼ね合い: readonly列は singleClickEdit にも反応しない
 
 #### 1-E: Action menu（⋮）
@@ -76,10 +74,6 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 - `findMatches` メッセージ送信 → `findMatchesResult` でハイライト
 - ハイライト描画ロジックは後で実装
 
-#### 1-I: コピー機能の統一
-- 現在: BulkEdit は `copy`、ResxEditor は `copyToClipboard`
-- 統一: `copyToClipboard` に合わせる（使いやすい方？）
-- CSV形式コピーは単一選択なので不要
 
 #### 1-J: 検索機能
 
