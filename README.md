@@ -44,12 +44,14 @@ Of course, we've got you covered. Select "Multi View" from the UI.
 
 Open your workspace and set the default `Strings.resx` first. Right-click `Strings.resx` in the Explorer panel and run `RESX: Set as Default resx`. (Saved in `.vscode/settings.json`)
 
-Note: Functions such as Designer.cs syncing depend on this default file. While the tool is designed to work even if left unconfigured, we recommend setting it up for safety.  
-Also, if there are multiple default `Strings.resx` files in your workspace, open `.vscode\settings.json` and specify an array of strings for the `resx.defaultResx` key (Please note: This is an experimental feature and may cause unexpected issues).
-
-
 ![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot01.jpg)
 
+Note: Functions such as Designer.cs syncing depend on this default file. If left unconfigured, any file named `Strings.resx` in the workspace is automatically treated as the default fallback.  
+If there are multiple default .resx files (not necessarily named `Strings.resx`), you can specify them as an array in `.vscode/settings.json` in workspace:
+
+```json
+"resx.defaultResx": ["Resources/Strings.resx", "Other/Labels.resx"]
+```
 
 ## Commands
 

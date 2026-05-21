@@ -11,6 +11,7 @@ Before making changes, agents should always review:
 - `src/resx-parser.ts`: Regex-based RESX XML parser (`<data>` → `ResxEntry[]`).
 - `src/resx-writer.ts`: RESX XML serializer (`.resx` schema-compliant output).
 - `src/resx-locale-finder.ts`: Discovers related locale files (e.g. `Resources.ja.resx`, `Resources.fr.resx`).
+- `src/resx-config.ts`: Shared helpers for `resx.defaultResx` setting — `normalizeDefaultResxList()` and `isDefaultResx()`. The setting accepts `string | string[]` and falls back to `Strings.resx` when unconfigured.
 - `src/commands.ts`: Command registrations (`resx.toggleExtension`, `resx.addLocale`, etc.).
 - `src/types/resx.d.ts`: Type definitions for RESX data model and webview messages.
 - `media/main.js`: Webview-side JavaScript (selection, editing, find/replace, zoom, context menu).
