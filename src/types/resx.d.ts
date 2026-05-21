@@ -214,8 +214,14 @@ export interface BulkEditSaveAllMessage {
   type: 'saveAll';
 }
 
+/** Message from bulk-edit webview: copy text to clipboard */
+export interface BulkEditCopyMessage {
+  type: 'copy';
+  text: string;
+}
+
 /** Union of messages from the bulk-edit webview to the host */
-export type BulkEditWebviewMessage = BulkEditCellChangedMessage | BulkEditSaveAllMessage;
+export type BulkEditWebviewMessage = BulkEditCellChangedMessage | BulkEditSaveAllMessage | BulkEditCopyMessage;
 
 /** Metadata stored in a .resxbulk temporary file (no values — always read from live files) */
 export interface BulkEditTempFileMetadata {

@@ -124,12 +124,12 @@
         },
         "resx.showSerialIndex": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Show a serial index column (#) on the left side of the table."
         },
         "resx.singleClickEdit": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Start editing a cell on single click instead of requiring Enter or double-click."
         },
         "resx.maxFileSizeMB": {

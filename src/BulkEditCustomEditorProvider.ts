@@ -113,6 +113,8 @@ class BulkEditController implements vscode.Disposable {
         // First edit for this locale — fire dirty
         this.fireDirty();
       }
+    } else if (msg.type === 'copy') {
+      vscode.env.clipboard.writeText(msg.text);
     }
   }
 
@@ -179,6 +181,7 @@ class BulkEditController implements vscode.Disposable {
     const fontFamily = config.get<string>('fontFamily', '');
     const fontSize = config.get<number>('fontSize', 0);
     const cellPadding = config.get<number>('cellPadding', 4);
+    const singleClickEdit = config.get<boolean>('singleClickEdit', true);
     const themeVars = getThemeCssVariables();
 
     const fontStr = fontFamily
@@ -224,7 +227,7 @@ class BulkEditController implements vscode.Disposable {
       width: 100%;
     }
     th, td {
-      padding: ${cellPadding}px 12px;
+      padding: ${cellPadding}px ${cellPadding}px;
       border: 1px solid var(--resx-border);
       font-size: inherit;
       vertical-align: top;
@@ -242,7 +245,18 @@ class BulkEditController implements vscode.Disposable {
     td.locale-col {
       background: var(--resx-header-bg);
       font-weight: 500;
-      user-select: none;
+      user-select: text;
+      cursor: pointer;
+      outline: none;
+    }
+    td.locale-col:focus {
+      outline: 2px solid var(--resx-focus-border);
+      outline-offset: -2px;
+      background-color: var(--resx-selected-bg);
+    }
+    td.locale-col:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: -2px;
     }
     td.value-col {
       outline: none;
@@ -251,11 +265,23 @@ class BulkEditController implements vscode.Disposable {
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       overflow: auto;
-      max-height: 200px;
+      max-height: 240px;
+      max-width: 300px;
     }
     td.value-col:focus {
       outline: 2px solid var(--resx-focus-border);
       outline-offset: -2px;
+      background-color: var(--resx-selected-bg);
+    }
+    td.value-col:focus-visible {
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: -2px;
+    }
+    /* VS Code theme selection colors */
+    td.value-col::selection,
+    td.value-col *::selection {
+      background: var(--resx-selection-bg);
+      color: var(--resx-selection-fg);
     }
     td.value-col.missing {
       background: var(--resx-missing-bg);
@@ -263,9 +289,16 @@ class BulkEditController implements vscode.Disposable {
     td.value-col.empty {
       opacity: 0.5;
     }
+    td.value-col.truncated {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
   </style>
 </head>
-<body>
+<body data-singleclickedit="${singleClickEdit}">
   <h2><span class="name">${this.escapeHtml(this.metadata.keyName)}</span></h2>
   <table>
     <thead>
@@ -280,6 +313,19 @@ class BulkEditController implements vscode.Disposable {
     const vscode = acquireVsCodeApi();
     let localeData = ${localeJson};
     const tbody = document.getElementById('rows');
+    const singleClickEdit = document.body.dataset.singleclickedit === 'true';
+    const editing = new WeakSet();
+
+    // Place cursor at the end of a contentEditable cell
+    function focusEnd(cell) {
+      cell.focus();
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
 
     function escapeHtml(text) {
       return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -291,6 +337,7 @@ class BulkEditController implements vscode.Disposable {
         const tr = document.createElement('tr');
         const tdLocale = document.createElement('td');
         tdLocale.className = 'locale-col';
+        tdLocale.tabIndex = 0;
         tdLocale.textContent = item.locale === null ? '(default)' : item.locale;
         tr.appendChild(tdLocale);
 
@@ -298,12 +345,42 @@ class BulkEditController implements vscode.Disposable {
         tdValue.className = 'value-col' + (item.value === '' ? ' empty missing' : '');
         tdValue.dataset.idx = idx;
         tdValue.dataset.locale = item.locale === null ? '' : item.locale;
-        tdValue.contentEditable = 'true';
+        if (!singleClickEdit) { tdValue.tabIndex = 0; }
+        tdValue.contentEditable = singleClickEdit ? 'true' : 'false';
         tdValue.textContent = item.value;
         tdValue.title = item.value.indexOf('\\n') >= 0 || item.value.indexOf('\\r') >= 0 ? item.value : '';
-        tr.appendChild(tdValue);
 
+        // Truncate non-editing cells with long single-line values
+        tdValue.classList.add('truncated');
+
+        tr.appendChild(tdValue);
         tbody.appendChild(tr);
+      });
+    }
+
+    // Click on truncated cell to expand (and focus when singleClickEdit)
+    tbody.addEventListener('click', (e) => {
+      const cell = e.target.closest('td.value-col.truncated');
+      if (cell) {
+        cell.classList.remove('truncated');
+        if (singleClickEdit) { focusEnd(cell); }
+      }
+    });
+
+    // Click locale-col to focus it
+    tbody.addEventListener('click', (e) => {
+      const localeCell = e.target.closest('td.locale-col');
+      if (localeCell) { localeCell.focus(); }
+    });
+
+    // Double-click value-col to enter edit mode (when singleClickEdit is off)
+    if (!singleClickEdit) {
+      tbody.addEventListener('dblclick', (e) => {
+        const cell = e.target.closest('td.value-col');
+        if (!cell) return;
+        cell.contentEditable = 'true';
+        editing.add(cell);
+        focusEnd(cell);
       });
     }
 
@@ -327,10 +404,70 @@ class BulkEditController implements vscode.Disposable {
       if (!cell) return;
       const value = cell.textContent || '';
       cell.title = (value.indexOf('\\n') >= 0 || value.indexOf('\\r') >= 0) ? value : '';
+      cell.classList.add('truncated');
+      if (!singleClickEdit) {
+        cell.contentEditable = 'false';
+        editing.delete(cell);
+      }
+
     });
 
-    // Keyboard navigation
+    // Keyboard navigation & copy
     tbody.addEventListener('keydown', (e) => {
+      // Ctrl+C / Cmd+C: copy cell text via host (only when not in contentEditable edit)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const active = document.activeElement;
+        if (active && active.contentEditable === 'true' && window.getSelection()?.toString()) {
+          return; // let browser handle native copy in editable cell
+        }
+        const td = e.target.closest('td');
+        if (td && (td.classList.contains('value-col') || td.classList.contains('locale-col'))) {
+          e.preventDefault();
+          vscode.postMessage({ type: 'copy', text: td.textContent || '' });
+        }
+        return;
+      }
+
+      // Arrow key navigation (only when not editing)
+      const active = document.activeElement;
+      if (active && active.contentEditable === 'true' && window.getSelection()?.toString()) {
+        // editing with text selected — let browser handle arrows
+      } else if (active && active.contentEditable === 'true') {
+        // editing but no selection — suppress left/right cross-cell; let vertical through
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+        // ArrowUp / ArrowDown fall through to navigation below
+      }
+
+      const td = e.target.closest('td');
+      if (!td) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const tr = td.closest('tr');
+        const next = e.key === 'ArrowDown' ? tr.nextElementSibling : tr.previousElementSibling;
+        if (next) {
+          const target = td.classList.contains('locale-col')
+            ? next.querySelector('td.locale-col')
+            : next.querySelector('td.value-col');
+          if (target) target.focus();
+        }
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        if (td.classList.contains('value-col')) {
+          const localeCell = td.closest('tr').querySelector('td.locale-col');
+          if (localeCell) { e.preventDefault(); localeCell.focus(); }
+        }
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        if (td.classList.contains('locale-col')) {
+          const valueCell = td.closest('tr').querySelector('td.value-col');
+          if (valueCell) { e.preventDefault(); valueCell.focus(); }
+        }
+        return;
+      }
+
       const cell = e.target.closest('td.value-col');
       if (!cell) return;
 
