@@ -1,6 +1,8 @@
 # Plan: BulkEdit を拡張して ResxEditor に統合
 
-BulkEditCustomEditorProvider を「汎用編集可能グリッド」に拡張した上で、ResxEditor の webview を BulkEdit のインラインJS方式に移行する。`src/webview/*.js` は最終的に全削除。
+プロジェクトファイルパス： C:\Users\win\source\repos\resx-designer
+
+BulkEditCustomEditorProvider を「汎用編集可能グリッド」に拡張した上で、ResxEditor の webview を BulkEdit のインラインJS方式に移行する。
 
 ## 全体の流れ
 
@@ -34,7 +36,7 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 | ステップ | 内容 | 状態 |
 |---------|------|------|
 | 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ✅ |
-| 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ⬜拡張したため動かなくなった |
+| 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ✅ |
 | 1-E | Action menu（⋮） | ⬜ |
 | 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ⬜ |
 | 1-G | Dialogs（Add Language, Add Key） | ⬜ |

@@ -63,10 +63,8 @@ const DUMMY_ROWS = [
 
 // ─── Provider ─────────────────────────────────────────────────────
 
-export class TestEditProvider {
-
-  public static readonly viewType = 'resx.testEdit';
-
+export class TestEdit {
+  public static readonly viewType = "resx.testEdit";
   private panel: vscode.WebviewPanel | undefined;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
@@ -78,41 +76,54 @@ export class TestEditProvider {
       return;
     }
 
+    const htmlProvider = new TestEditProvider();
+
     this.panel = vscode.window.createWebviewPanel(
-      TestEditProvider.viewType,
-      'RESX Test Edit',
+      TestEdit.viewType,
+      "RESX Test Edit",
       vscode.ViewColumn.One,
-      { enableScripts: true }
+      { enableScripts: true },
     );
 
-    this.panel.webview.html = this.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
+    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
 
-    this.panel.onDidDispose(() => { this.panel = undefined; });
+    this.panel.onDidDispose(() => {
+      this.panel = undefined;
+    });
 
     // Handle theme updates
     const themeSub = vscode.window.onDidChangeActiveColorTheme(() => {
       if (this.panel) {
         const themeVars = getThemeCssVariables();
-        this.panel.webview.postMessage({ type: 'updateTheme', cssVars: themeVars });
+        this.panel.webview.postMessage({
+          type: "updateTheme",
+          cssVars: themeVars,
+        });
       }
     });
+
     this.panel.onDidDispose(() => themeSub.dispose());
   }
+}
+
+
+export class TestEditProvider {
+  constructor() {}
 
   // ── Webview HTML ────────────────────────────────────────────────
 
-  private buildHtml(columns: any[], rows: any[]): string {
-    const config = vscode.workspace.getConfiguration('resx');
-    const fontFamily = config.get<string>('fontFamily', '');
-    const fontSize = config.get<number>('fontSize', 0);
-    const cellPadding = config.get<number>('cellPadding', 4);
-    const singleClickEdit = config.get<boolean>('singleClickEdit', true);
+  public buildHtml(columns: any[], rows: any[]): string {
+    const config = vscode.workspace.getConfiguration("resx");
+    const fontFamily = config.get<string>("fontFamily", "");
+    const fontSize = config.get<number>("fontSize", 0);
+    const cellPadding = config.get<number>("cellPadding", 4);
+    const singleClickEdit = config.get<boolean>("singleClickEdit", true);
     const themeVars = getThemeCssVariables();
 
     const fontStr = fontFamily
       ? `${fontFamily}, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif`
       : "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-    const fontSizeStr = fontSize > 0 ? `${fontSize}px` : 'inherit';
+    const fontSizeStr = fontSize > 0 ? `${fontSize}px` : "inherit";
     const nonce = this.getNonce();
 
     const columnsJson = JSON.stringify(columns);
@@ -324,11 +335,12 @@ export class TestEditProvider {
     }
 
     function setupEditable(td) {
-      if (singleClickEdit) {
-        td.contentEditable = 'true';
-      } else {
-        td.tabIndex = 0;
-      }
+      // contentEditable は startEditing() で有効化する。
+      // singleClickEdit の有無にかかわらず初期状態では false にしておくことで、
+      // カーソル移動（キーボードナビゲーション）によるフォーカスだけでは
+      // 編集モードに入らないようにする。
+      td.contentEditable = 'false';
+      td.tabIndex = 0;
     }
 
     function setupReadonly(td) {
@@ -339,6 +351,13 @@ export class TestEditProvider {
       }
     }
 
+    // キーボードナビゲーション用: 選択とフォーカスのみ、編集開始しない
+    function navigateToCell(target) {
+      selectCell(target);
+      target.focus();
+    }
+
+    // Tab/Enter確定後など、編集継続が期待される移動用
     function moveToCell(target) {
       selectCell(target);
       if (!singleClickEdit && target.classList.contains('editable') && !editing.has(target)) {
@@ -350,14 +369,14 @@ export class TestEditProvider {
 
     function startEditing(td) {
       if (editing.has(td)) return;
-      if (!singleClickEdit) td.contentEditable = 'true';
+      td.contentEditable = 'true';
       editing.add(td);
       td.classList.add('editing');
     }
 
     function stopEditing(td) {
       if (!editing.has(td)) return;
-      if (!singleClickEdit) td.contentEditable = 'false';
+      td.contentEditable = 'false';
       editing.delete(td);
       td.classList.remove('editing');
     }
@@ -394,7 +413,6 @@ export class TestEditProvider {
       tbody.addEventListener('dblclick', (e) => {
         const td = e.target.closest('td.editable');
         if (!td) return;
-        td.contentEditable = 'true';
         startEditing(td);
         selectCell(td);
         focusEnd(td);
@@ -476,14 +494,7 @@ export class TestEditProvider {
         if (next) {
           const colIdx = parseInt(td.dataset.col, 10);
           const target = next.children[colIdx];
-          if (target) {
-            selectCell(target);
-            if (target.classList.contains('editable') && !editing.has(target)) {
-              startEditing(target);
-            }
-            target.focus();
-            if (editing.has(target)) focusEnd(target);
-          }
+          if (target) { navigateToCell(target); }
         }
         return;
       }
@@ -501,15 +512,7 @@ export class TestEditProvider {
         if (nextColIdx >= 0 && nextColIdx < columns.length) {
           e.preventDefault();
           const target = td.closest('tr').children[nextColIdx];
-          if (target) {
-            selectCell(target);
-            if (target.classList.contains('editable') && !singleClickEdit && !editing.has(target)) {
-              target.contentEditable = 'true';
-              editing.add(target);
-            }
-            target.focus();
-            if (editing.has(target)) focusEnd(target);
-          }
+          if (target) { navigateToCell(target); }
         }
         return;
       }
@@ -525,15 +528,7 @@ export class TestEditProvider {
           if (next) {
             const colIdx = parseInt(td.dataset.col, 10);
             const target = next.children[colIdx];
-            if (target) {
-              selectCell(target);
-              if (target.classList.contains('editable')) {
-                startEditing(target);
-                focusEnd(target);
-              } else {
-                target.focus();
-              }
-            }
+            if (target) { moveToCell(target); }
           }
         } else {
           // 非編集中: 編集開始（editableなら）
@@ -555,12 +550,7 @@ export class TestEditProvider {
           const target = next.children[colIdx];
           if (target) {
             if (isEditing) stopEditing(td);
-            selectCell(target);
-            if (target.classList.contains('editable') && !editing.has(target)) {
-              startEditing(target);
-            }
-            target.focus();
-            if (editing.has(target)) focusEnd(target);
+            moveToCell(target);
           }
         }
         return;
@@ -654,8 +644,9 @@ export class TestEditProvider {
   // ── Utilities ────────────────────────────────────────────────────
 
   private getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let text = "";
+    const possible =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     for (let i = 0; i < 32; i++) {
       text += possible.charAt(Math.floor(Math.random() * possible.length));
     }

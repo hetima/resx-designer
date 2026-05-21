@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
-import { TestEditProvider } from './TestEditProvider';
+import { TestEdit } from './TestEditProvider';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register the test-edit provider (development sandbox)
-  const testProvider = new TestEditProvider(context);
+  const testProvider = new TestEdit(context);
   context.subscriptions.push(
     vscode.commands.registerCommand('resx.testEdit', () => testProvider.open())
   );
