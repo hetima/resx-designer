@@ -114,9 +114,9 @@ class ResxEditorController {
       }
     });
 
-    // Re-render when the color theme changes so CSS variables stay in sync
+    // Update CSS variables when the color theme changes (without full HTML rebuild to avoid focus steal)
     const colorThemeSub = vscode.window.onDidChangeActiveColorTheme(() => {
-      this.updateWebviewContent();
+      this.updateThemeVariables();
     });
 
     webviewPanel.onDidDispose(() => {
@@ -833,6 +833,14 @@ class ResxEditorController {
     })[m] as string);
   }
 
+  /** Send updated CSS variables to the webview without a full HTML rebuild.
+   *  This avoids re-executing main.js and stealing focus on theme previews. */
+  private updateThemeVariables(): void {
+    if (!this.currentWebviewPanel) { return; }
+    const themeVars = getThemeCssVariables();
+    this.currentWebviewPanel.webview.postMessage({ type: 'updateTheme', cssVars: themeVars });
+  }
+
   private updateWebviewContent(): void {
     if (!this.currentWebviewPanel || !this.localeSet) { return; }
 
@@ -1003,6 +1011,7 @@ class ResxEditorController {
         </div>
       </div>
     </div>
+    <script nonce="${nonce}">window.__resxThemeUpdate=true;</script>
     <script nonce="${nonce}" src="${scriptUri}"></script>
   </body>
 </html>`;

@@ -2,9 +2,26 @@
 // Adapted from CSV editor – retains selection, editing, find/replace, zoom, context menu.
 
 document.body.setAttribute('tabindex', '0');
-try { document.body.focus({ preventScroll: true }); } catch { try { document.body.focus(); } catch {} }
+// Only grab focus on initial load — avoid stealing focus on theme-only updates
+if (!window.__resxThemeUpdate) {
+  try { document.body.focus({ preventScroll: true }); } catch { try { document.body.focus(); } catch {} }
+}
 
 const vscode = acquireVsCodeApi();
+
+// ── Theme-only update handler (avoids full HTML rebuild) ─────────
+window.addEventListener('message', event => {
+  const msg = event.data;
+  if (msg?.type === 'updateTheme') {
+    let styleEl = document.getElementById('resx-theme-vars');
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'resx-theme-vars';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = `:root { ${msg.cssVars} }`;
+  }
+});
 
 const root = document.getElementById('csv-root');
 const isResxMode = (root?.dataset?.resx === '1');
