@@ -312,7 +312,7 @@ function generateDesignerCsContent(
 
   for (const name of names) {
     lines.push('');
-    lines.push(`        internal static string ${name} {`);
+    lines.push(`        public static string ${name} {`);
     lines.push(`            get {`);
     lines.push(`                return ResourceManager.GetString("${name}", resourceCulture);`);
     lines.push(`            }`);
