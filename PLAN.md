@@ -33,9 +33,7 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 
 | ステップ | 内容 | 状態 |
 |---------|------|------|
-| 1-A | 可変列対応（columns[] メタデータからの動的head/body生成） | ✅ 実装済み |
 | 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ⬜ |
-| 1-C | 単一選択の統一（.selected class） | ✅ 実装済み |
 | 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ⬜拡張したため動かなくなった |
 | 1-E | Action menu（⋮） | ⬜ |
 | 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ⬜ |

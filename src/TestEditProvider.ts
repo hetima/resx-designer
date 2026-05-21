@@ -13,14 +13,14 @@ import { getThemeCssVariables } from './theme-colors';
 // ─── Dummy data (multi-column, like ResxEditor) ──────────────────
 
 const DUMMY_COLUMNS = [
-  { kind: 'index' as const, locale: null, label: '#', editable: false, resizable: false },
-  { kind: 'action' as const, locale: null, label: '', editable: false, resizable: false },
-  { kind: 'name' as const, locale: null, label: 'Name', editable: false, resizable: true },
-  { kind: 'comment' as const, locale: null, label: 'Comment', editable: false, resizable: true },
-  { kind: 'locale' as const, locale: null, label: 'default', editable: true, resizable: true },
-  { kind: 'locale' as const, locale: 'ja', label: 'ja', editable: true, resizable: true },
-  { kind: 'locale' as const, locale: 'fr', label: 'fr', editable: true, resizable: true },
-  { kind: 'locale' as const, locale: 'de', label: 'de', editable: true, resizable: true },
+  { kind: 'index' as const, locale: null, label: '#', editable: false, resizable: false, width: 40 },
+  { kind: 'action' as const, locale: null, label: '', editable: false, resizable: false, width: 24 },
+  { kind: 'name' as const, locale: null, label: 'Name', editable: false, resizable: true, width: 100 },
+  { kind: 'comment' as const, locale: null, label: 'Comment', editable: false, resizable: true, width: 180 },
+  { kind: 'locale' as const, locale: null, label: 'default', editable: true, resizable: true, width: 200 },
+  { kind: 'locale' as const, locale: 'ja', label: 'ja', editable: true, resizable: true, width: 200 },
+  { kind: 'locale' as const, locale: 'fr', label: 'fr', editable: true, resizable: true, width: 200 },
+  { kind: 'locale' as const, locale: 'de', label: 'de', editable: true, resizable: true, width: 100 },
 ];
 
 const DUMMY_ROWS = [
@@ -174,14 +174,14 @@ export class TestEditProvider {
     td.missing-translation { background-color: var(--resx-missing-bg) !important; }
 
     /* Column classes */
-    .index-col { min-width: 40px; max-width: 50px; color: var(--resx-index-fg, var(--resx-fg)); text-align: right; }
-    .action-col { min-width: 24px; width: 24px; max-width: 24px; text-align: center; padding: 0 2px; cursor: pointer; }
-    .action-col-header { min-width: 24px; width: 24px; max-width: 24px; text-align: center; padding: 0 2px; }
+    .index-col { text-align: right; color: var(--resx-index-fg, var(--resx-fg)); }
+    .action-col { text-align: center; padding: 0 2px; cursor: pointer; }
+    .action-col-header { text-align: center; padding: 0 2px; }
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
     .action-col:hover .action-icon { opacity: 1; }
-    .name-col { min-width: 60px; width: 180px; max-width: 180px; }
-    .comment-col { min-width: 60px; width: 180px; max-width: 180px; }
-    .value-col { min-width: 80px; width: 200px; max-width: 220px; }
+    .name-col { }
+    .comment-col { }
+    .value-col { }
 
     /* Focus / Editable */
     td.editable { outline: none; cursor: text; }
@@ -260,6 +260,10 @@ export class TestEditProvider {
         else if (col.kind === 'comment') th.className = 'comment-col';
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
         th.textContent = col.label;
+        const w = col.width;
+        th.style.width = w + 'px';
+        th.style.minWidth = w + 'px';
+        th.style.maxWidth = w + 'px';
         if (col.resizable) {
           const handle = document.createElement('div');
           handle.className = 'resize-handle';
@@ -279,6 +283,10 @@ export class TestEditProvider {
           const td = document.createElement('td');
           td.dataset.row = rowIdx;
           td.dataset.col = colIdx;
+          const w = col.width;
+          td.style.width = w + 'px';
+          td.style.minWidth = w + 'px';
+          td.style.maxWidth = w + 'px';
 
           if (col.kind === 'index') {
             td.className = 'index-col';
@@ -331,7 +339,14 @@ export class TestEditProvider {
       }
     }
 
-    // ── Editing state ──────────────────────────────────────────
+    function moveToCell(target) {
+      selectCell(target);
+      if (!singleClickEdit && target.classList.contains('editable') && !editing.has(target)) {
+        startEditing(target);
+      }
+      target.focus();
+      if (editing.has(target)) focusEnd(target);
+    }
 
     function startEditing(td) {
       if (editing.has(td)) return;
