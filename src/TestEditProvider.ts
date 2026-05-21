@@ -270,12 +270,12 @@ export class TestEditProvider {
             td.className = 'name-col';
             td.textContent = row.name;
             if (col.editable) { td.classList.add('editable'); setupEditable(td); }
-            else { td.dataset.readonly = ''; }
+            else { td.dataset.readonly = ''; setupReadonly(td); }
           } else if (col.kind === 'comment') {
             td.className = 'comment-col';
             td.textContent = row.comment;
             if (col.editable) { td.classList.add('editable'); setupEditable(td); }
-            else { td.dataset.readonly = ''; }
+            else { td.dataset.readonly = ''; setupReadonly(td); }
           } else if (col.kind === 'locale') {
             const value = row.values[col.locale] || '';
             const missing = (col.locale !== null && (!value || value === row.values[null]));
@@ -298,6 +298,14 @@ export class TestEditProvider {
       if (singleClickEdit) {
         td.contentEditable = 'true';
       } else {
+        td.tabIndex = 0;
+      }
+    }
+
+    function setupReadonly(td) {
+      // 編集不可でもフォーカス可能にする（index/action以外）
+      const col = columns[parseInt(td.dataset.col, 10)];
+      if (col.kind !== 'index' && col.kind !== 'action') {
         td.tabIndex = 0;
       }
     }
@@ -392,17 +400,18 @@ export class TestEditProvider {
         return;
       }
 
-      // Editing mode behavior
-      if (active && active.contentEditable === 'true') {
+      // 編集モードの振る舞い（編集中セルのみ）
+      if (active && active.contentEditable === 'true' && isEditing) {
         if (window.getSelection()?.toString()) {
-          return; // text selected — let browser handle arrows
+          return; // テキスト選択中 — ブラウザに任せる
         }
-        // Suppress left/right cross-cell; let vertical through
+        // 編集中は左右矢印をセル移動に使わない
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
       }
 
-      const td = active?.closest('td');
+      const td = active?.closest('td') || selectedTd;
       if (!td) return;
+      const isEditing = editing.has(td);
 
       // ↑↓: move between rows (same column type)
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
