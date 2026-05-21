@@ -5,6 +5,7 @@ import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
+import { isDefaultResx } from './resx-config';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('RESX: Extension activated');
@@ -121,26 +122,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 // ── Designer.cs Generation ─────────────────────────────────────────
 
-/** Check if uri matches the configured defaultResx, then regenerate. */
+/** Check if uri matches any configured defaultResx, then regenerate. */
 async function tryRegenerateDesignerCs(
   uri: vscode.Uri,
   extensionVersion: string,
 ): Promise<void> {
   const config = vscode.workspace.getConfiguration('resx', uri);
-  const inspected = config.inspect<string>('defaultResx');
-  if (!inspected?.workspaceFolderValue && !inspected?.workspaceValue
-    && !inspected?.globalValue && !inspected?.globalLanguageValue
-    && !inspected?.workspaceLanguageValue && !inspected?.workspaceFolderLanguageValue) {
-    return;
-  }
-  const defaultResx = config.get<string>('defaultResx')!;
-  if (!defaultResx) { return; }
 
   const wsFolder = vscode.workspace.getWorkspaceFolder(uri);
   const relativePath = wsFolder
     ? path.relative(wsFolder.uri.fsPath, uri.fsPath).replace(/\\/g, '/')
     : path.basename(uri.fsPath);
-  if (relativePath !== defaultResx) { return; }
+
+  if (!isDefaultResx(relativePath, config)) { return; }
 
   // Read file content from disk (works for both VS Code saves and external edits)
   const bytes = await vscode.workspace.fs.readFile(uri);

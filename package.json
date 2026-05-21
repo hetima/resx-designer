@@ -134,9 +134,9 @@
           "description": "Soft max size in MB for opening files in RESX view. 0 disables the limit."
         },
         "resx.defaultResx": {
-          "type": "string",
-          "default": "Resources/Strings.resx",
-          "description": "Path relative to workspace root of the .resx file that triggers Designer.test.cs generation on save.",
+          "type": ["string", "array"],
+          "items": { "type": "string" },
+          "description": "Path relative to workspace root of the .resx file(s) that trigger Designer.cs generation on save. Accepts a single path or an array of paths. Falls back to any file named Strings.resx when unconfigured.",
           "scope": "resource"
         }
       }

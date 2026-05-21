@@ -5,6 +5,7 @@ import { ResxEditorProvider } from './ResxEditorProvider';
 import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';
+import { normalizeDefaultResxList } from './resx-config';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -164,8 +165,8 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
     // Sort default file names (standalone command, immediate save)
     vscode.commands.registerCommand("resx.sortDefaultFileKeys", async () => {
       const config = vscode.workspace.getConfiguration("resx");
-      const defaultResx = config.get<string>("defaultResx", "");
-      if (!defaultResx) {
+      const defaultResxList = normalizeDefaultResxList(config.get<string | string[]>("defaultResx"));
+      if (defaultResxList.length === 0) {
         vscode.window.showErrorMessage("RESX: resx.defaultResx is not configured.");
         return;
       }
@@ -174,12 +175,23 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage("RESX: No workspace folder open.");
         return;
       }
-      const filePath = path.join(folders[0].uri.fsPath, defaultResx);
+      // If multiple defaults, let the user pick one
+      let picked: string;
+      if (defaultResxList.length === 1) {
+        picked = defaultResxList[0];
+      } else {
+        const choice = await vscode.window.showQuickPick(defaultResxList, {
+          placeHolder: "Select which default .resx to sort",
+        });
+        if (!choice) { return; }
+        picked = choice;
+      }
+      const filePath = path.join(folders[0].uri.fsPath, picked);
       const uri = vscode.Uri.file(filePath);
       try {
         await vscode.workspace.fs.stat(uri);
       } catch {
-        vscode.window.showErrorMessage(`RESX: File not found: ${defaultResx}`);
+        vscode.window.showErrorMessage(`RESX: File not found: ${picked}`);
         return;
       }
       const content = await vscode.workspace.fs.readFile(uri);
@@ -188,14 +200,14 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       doc.entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
       const xml = serializeResx(doc);
       await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
-      vscode.window.showInformationMessage(`RESX: Sorted ${defaultResx} by name.`);
+      vscode.window.showInformationMessage(`RESX: Sorted ${picked} by name.`);
     }),
 
     // Sort all locale file names (standalone command, immediate save)
     vscode.commands.registerCommand("resx.sortAllFileKeys", async () => {
       const config = vscode.workspace.getConfiguration("resx");
-      const defaultResx = config.get<string>("defaultResx", "");
-      if (!defaultResx) {
+      const defaultResxList = normalizeDefaultResxList(config.get<string | string[]>("defaultResx"));
+      if (defaultResxList.length === 0) {
         vscode.window.showErrorMessage("RESX: resx.defaultResx is not configured.");
         return;
       }
@@ -204,17 +216,28 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage("RESX: No workspace folder open.");
         return;
       }
-      const filePath = path.join(folders[0].uri.fsPath, defaultResx);
+      // If multiple defaults, let the user pick one
+      let picked: string;
+      if (defaultResxList.length === 1) {
+        picked = defaultResxList[0];
+      } else {
+        const choice = await vscode.window.showQuickPick(defaultResxList, {
+          placeHolder: "Select which default .resx to sort (and its locales)",
+        });
+        if (!choice) { return; }
+        picked = choice;
+      }
+      const filePath = path.join(folders[0].uri.fsPath, picked);
       const uri = vscode.Uri.file(filePath);
       try {
         await vscode.workspace.fs.stat(uri);
       } catch {
-        vscode.window.showErrorMessage(`RESX: File not found: ${defaultResx}`);
+        vscode.window.showErrorMessage(`RESX: File not found: ${picked}`);
         return;
       }
       const localeSet = await findRelatedResxFiles(uri);
       if (!localeSet) {
-        vscode.window.showErrorMessage(`RESX: Could not load locale set from ${defaultResx}`);
+        vscode.window.showErrorMessage(`RESX: Could not load locale set from ${picked}`);
         return;
       }
       let count = 0;
@@ -262,13 +285,13 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
     }),
 
     // Set a .resx file as the default resx for test generation.
-    // - Context menu: clicked URI is provided → register that file immediately.
+    // - Context menu: clicked URI is provided → overwrite with that file's relative path.
     // - Command palette: no URI argument → prompt the user for a path.
     vscode.commands.registerCommand(
       "resx.setDefaultResx",
       async (clickedUri?: vscode.Uri) => {
         if (clickedUri) {
-          // Called from context menu — register the clicked file's relative path
+          // Called from context menu — overwrite with the clicked file's relative path
           const workspaceFolder =
             vscode.workspace.getWorkspaceFolder(clickedUri);
           const relativePath = workspaceFolder
@@ -289,13 +312,15 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
           );
         } else {
           // Called from command palette — let the user type a path (empty string disables)
-          const current = vscode.workspace
-            .getConfiguration("resx")
-            .get<string>("defaultResx", "");
+          const cfg = vscode.workspace.getConfiguration("resx");
+          const existing = normalizeDefaultResxList(
+            cfg.get<string | string[]>("defaultResx"),
+          );
+          const currentDisplay = existing.join(", ");
           const input = await vscode.window.showInputBox({
             prompt:
               "Enter the relative path of the default .resx file (empty to disable).",
-            value: current,
+            value: currentDisplay,
             placeHolder: "e.g. Resources/Strings.resx",
           });
           if (input === undefined) {
@@ -303,18 +328,26 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
           } // cancelled
 
           const targetUri = vscode.window.activeTextEditor?.document.uri;
-          await vscode.workspace
-            .getConfiguration("resx", targetUri)
-            .update(
+          const cfgUpdate = vscode.workspace.getConfiguration("resx", targetUri);
+          if (!input) {
+            await cfgUpdate.update(
+              "defaultResx",
+              undefined,
+              vscode.ConfigurationTarget.WorkspaceFolder,
+            );
+            vscode.window.showInformationMessage(
+              "RESX: Default resx cleared. Generation disabled.",
+            );
+          } else {
+            await cfgUpdate.update(
               "defaultResx",
               input,
               vscode.ConfigurationTarget.WorkspaceFolder,
             );
-          vscode.window.showInformationMessage(
-            input
-              ? `RESX: Default resx set to "${input}".`
-              : "RESX: Default resx cleared. Generation disabled.",
-          );
+            vscode.window.showInformationMessage(
+              `RESX: Default resx set to "${input}".`,
+            );
+          }
         }
       },
     ),
