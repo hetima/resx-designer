@@ -46,6 +46,15 @@ export interface TableEditOptions {
   onUndo?: () => void;
   /** Called when a redo is performed. */
   onRedo?: () => void;
+  /** If true, the webview sends a 'cellEdited' message to the host after each cell change. */
+  notifyCellEdits?: boolean;
+}
+
+export interface BuildHtmlOptions {
+  /** Title displayed at the top of the page (empty string = spacer). */
+  title?: string;
+  /** Extra inline JavaScript injected before the closing </script> tag. */
+  additionalScript?: string;
 }
 
 
@@ -61,11 +70,13 @@ export class TableEditProvider {
   protected _pendingChangesResolve: ((changes: TableChange[]) => void) | null = null;
   protected _pendingFullStateResolve: ((state: FullEditState) => void) | null = null;
   protected _pendingRestoreAckResolve: (() => void) | null = null;
+  protected _notifyCellEdits: boolean;
 
   constructor(options?: TableEditOptions) {
     this._onDirtyChange = options?.onDirtyChange;
     this._onUndo = options?.onUndo;
     this._onRedo = options?.onRedo;
+    this._notifyCellEdits = options?.notifyCellEdits ?? false;
   }
 
   /** Attach to a webview panel to handle messages. Call after `buildHtml` and setting `panel.webview.html`. */
@@ -192,14 +203,22 @@ export class TableEditProvider {
     }
   }
 
+  /** Called when the webview sends a 'cellEdited' message (only when notifyCellEdits is true). */
+  protected _onCellEdited?(msg: { row: number; col: number; field?: string; locale?: string; oldValue: string; newValue: string }): void;
+
   // ── Webview HTML ────────────────────────────────────────────────
 
   public buildHtml(
     columns: any[],
     rows: any[],
-    title: string = "",
+    titleOrOpts: string | BuildHtmlOptions = "",
     toolbarButtons: ToolbarButton[] = [],
   ): string {
+    const opts: BuildHtmlOptions = typeof titleOrOpts === 'string'
+      ? { title: titleOrOpts }
+      : titleOrOpts;
+    const title = opts.title ?? "";
+    const additionalScript = opts.additionalScript ?? "";
     const config = vscode.workspace.getConfiguration("resx");
     const fontFamily = config.get<string>("fontFamily", "");
     const fontSize = config.get<number>("fontSize", 0);
@@ -307,7 +326,7 @@ export class TableEditProvider {
 
     /* Column classes */
     .index-col { text-align: right; color: var(--resx-index-fg, var(--resx-fg)); }
-    .action-col { text-align: center; padding: 0 2px; cursor: pointer; }
+    .action-col { text-align: center; padding: 0 2px; cursor: pointer; vertical-align: middle; }
     .action-col-header { text-align: center; padding: 0 2px; }
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
     .action-col:hover .action-icon { opacity: 1; }
@@ -394,6 +413,7 @@ export class TableEditProvider {
     // ── Initial data ───────────────────────────────────────────
     const columns = ${columnsJson};
     const rows = ${rowsJson};
+    const _notifyCellEdits = ${this._notifyCellEdits};
     const singleClickEdit = document.body.dataset.singleclickedit === 'true';
     const editing = new WeakSet();
     const thead = document.getElementById('thead');
@@ -441,6 +461,15 @@ export class TableEditProvider {
       _undoStack.push(change);
       _redoStack = [];
       _recalcDirty();
+      if (_notifyCellEdits && change.kind === 'cell') {
+        const col = columns[change.col];
+        _notifyHost('cellEdited', {
+          row: change.row, col: change.col,
+          field: change.field,
+          locale: col && col.kind === 'locale' ? col.locale : undefined,
+          oldValue: change.oldValue, newValue: change.newValue,
+        });
+      }
     }
     function _performUndo() {
       if (_undoStack.length === 0) return false;
@@ -656,7 +685,7 @@ export class TableEditProvider {
           } else if (col.kind === 'action') {
             td.className = 'action-col';
             td.dataset.name = row.name;
-            td.innerHTML = '<span class="action-icon">⋮</span>';
+            td.innerHTML = '<span class="action-icon">⋯</span>';
           } else if (col.kind === 'name') {
             td.className = 'name-col';
             td.textContent = row.name;
@@ -1337,6 +1366,7 @@ export class TableEditProvider {
     renderBody();
     setupToolbar();
     _takeSnapshot();
+    ${additionalScript}
   </script>
 </body>
 </html>`;

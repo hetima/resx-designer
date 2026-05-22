@@ -76,8 +76,6 @@ All settings are scoped to the `resx.*` prefix.
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.fontFamily` | `string` | *(inherit)* | Override font family |
 | `resx.fontSize` | `number` | `0` | Override font size in px (`0` = inherit) |
-| `resx.mouseWheelZoom` | `boolean` | `true` | Enable Ctrl/Cmd + scroll zoom |
-| `resx.mouseWheelZoomInvert` | `boolean` | `false` | Invert zoom direction |
 | `resx.cellPadding` | `number` | `4` | Cell vertical padding in px |
 | `resx.maxFileSizeMB` | `number` | `10` | Soft file-size limit (`0` = unlimited) |
 

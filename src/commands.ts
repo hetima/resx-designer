@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
+import { ResxEditProvider } from './ResxEdit';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
@@ -28,7 +29,7 @@ async function clearAllExtensionState(context: vscode.ExtensionContext): Promise
   }
 
   // Refresh all open RESX editors so webview state is also reset
-  ResxEditorProvider.editors.forEach(ed => ed.refresh());
+  ResxEditProvider.controllers.forEach(ed => ed.refresh());
 
   return removed;
 }
@@ -39,7 +40,7 @@ async function toggleBooleanConfig(key: string, defaultVal: boolean, messagePref
   const newVal = !currentVal;
   await config.update(key, newVal, vscode.ConfigurationTarget.Global);
   vscode.window.showInformationMessage(`${messagePrefix} ${newVal ? 'enabled' : 'disabled'}.`);
-  ResxEditorProvider.editors.forEach(ed => ed.refresh());
+  ResxEditProvider.controllers.forEach(ed => ed.refresh());
 }
 
 // ── Command Registration ─────────────────────────────────────────────
@@ -88,12 +89,12 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
           ? `RESX font set to "${newVal}".`
           : "RESX font now inherits editor.fontFamily.",
       );
-      ResxEditorProvider.editors.forEach((ed) => ed.refresh());
+      ResxEditProvider.controllers.forEach((ed) => ed.refresh());
     }),
 
     // Add a new locale
     vscode.commands.registerCommand("resx.addLocale", async () => {
-      const active = ResxEditorProvider.getActiveProvider();
+      const active = ResxEditProvider.getActiveController();
       if (!active) {
         vscode.window.showInformationMessage(
           "Open a .resx file in the RESX editor.",
@@ -119,11 +120,11 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
 
       const locale = input.trim();
       const uri = active.getDocumentUri();
-      ResxEditorProvider.editors
+      ResxEditProvider.controllers
         .filter((ed) => ed.getDocumentUri().toString() === uri.toString())
         .forEach((ed) => {
           try {
-            const panel = (ed as any).currentWebviewPanel;
+            const panel = (ed as any)._panel;
             if (panel) {
               panel.webview.postMessage({
                 type: "addLocale",
@@ -143,13 +144,13 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
 
     // Refresh locale files (re-scan folder)
     vscode.commands.registerCommand("resx.refreshLocales", async () => {
-      ResxEditorProvider.editors.forEach((ed) => ed.refresh());
+      ResxEditProvider.controllers.forEach((ed) => ed.refresh());
       vscode.window.showInformationMessage("RESX: Refreshed locale files.");
     }),
 
     // Sort entries alphabetically (all locale files, immediate save)
     vscode.commands.registerCommand("resx.sortByName", async () => {
-      const active = ResxEditorProvider.getActiveProvider();
+      const active = ResxEditProvider.getActiveController();
       if (!active) {
         vscode.window.showInformationMessage(
           "Open a .resx file in the RESX editor.",
@@ -263,9 +264,9 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
 
       // Send clearState to every open webview so that webview-level
       // persisted state (columnSizes, rowSizes, zoomScale, scroll) is also reset.
-      for (const ed of ResxEditorProvider.editors) {
+      for (const ed of ResxEditProvider.controllers) {
         try {
-          const panel = (ed as any).currentWebviewPanel;
+          const panel = (ed as any)._panel;
           panel?.webview.postMessage({ type: "clearState" });
         } catch {
           /* ignore */
@@ -276,7 +277,7 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
 
       // Delay refresh so webview can process clearState before reload
       setTimeout(() => {
-        ResxEditorProvider.editors.forEach((ed) => ed.refresh());
+        ResxEditProvider.controllers.forEach((ed) => ed.refresh());
       }, 100);
 
       vscode.window.showInformationMessage(

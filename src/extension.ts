@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { ResxEditProvider } from './ResxEdit';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
 import { BulkEditProvider } from './BulkEdit';
@@ -18,9 +19,9 @@ export function activate(context: vscode.ExtensionContext) {
   registerResxCommands(context);
 
   // Register the custom editor provider
-  const provider = new ResxEditorProvider(context);
+  const provider = new ResxEditProvider(context);
   context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(ResxEditorProvider.viewType, provider, {
+    vscode.window.registerCustomEditorProvider(ResxEditProvider.viewType, provider, {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: false
     })
@@ -49,8 +50,7 @@ export function activate(context: vscode.ExtensionContext) {
     'resx.fontFamily',
     'resx.fontSize',
     'resx.cellPadding',
-    'resx.mouseWheelZoom',
-    'resx.mouseWheelZoomInvert',
+    'resx.showSerialIndex',
   ];
 
   const cfgListener = vscode.workspace.onDidChangeConfiguration(e => {
@@ -74,7 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
             const viewType = input?.viewType;
             const uri: vscode.Uri | undefined = input?.uri instanceof vscode.Uri ? input.uri : undefined;
             if (!input || !uri) return;
-            if (viewType === ResxEditorProvider.viewType) return;
+            if (viewType === ResxEditProvider.viewType) return;
             if (!uri.fsPath.toLowerCase().endsWith('.resx')) return;
             candidates.push({
               group, tab, uri,
@@ -90,7 +90,7 @@ export function activate(context: vscode.ExtensionContext) {
           for (const c of candidates) {
             try { await vscode.window.tabGroups.close(c.tab); } catch {}
             try {
-              await vscode.commands.executeCommand('vscode.openWith', c.uri, ResxEditorProvider.viewType, {
+              await vscode.commands.executeCommand('vscode.openWith', c.uri, ResxEditProvider.viewType, {
                 viewColumn: c.viewColumn,
                 preserveFocus: !c.wasActive,
                 preview: c.wasPreview,
@@ -100,13 +100,13 @@ export function activate(context: vscode.ExtensionContext) {
           }
         })();
       } else {
-        ResxEditorProvider.editors.forEach(ed => ed.refresh());
+        ResxEditProvider.controllers.forEach(ed => ed.refresh());
       }
     }
 
     const shouldRefresh = refreshKeys.some(key => e.affectsConfiguration(key));
     if (shouldRefresh) {
-      ResxEditorProvider.editors.forEach(ed => {
+      ResxEditProvider.controllers.forEach(ed => {
         if (ed.isActive()) { ed.refresh(); }
       });
     }
