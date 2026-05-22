@@ -379,6 +379,18 @@ export class TestEditProvider {
       td.contentEditable = 'false';
       editing.delete(td);
       td.classList.remove('editing');
+      updateMissingState(td);
+    }
+
+    function updateMissingState(td) {
+      const colIdx = parseInt(td.dataset.col, 10);
+      const rowIdx = parseInt(td.dataset.row, 10);
+      const col = columns[colIdx];
+      if (col.kind !== 'locale' || col.locale === null) return;
+      const value = rows[rowIdx].values[col.locale] || '';
+      const defaultValue = rows[rowIdx].values[null] || '';
+      const missing = !value || value === defaultValue;
+      td.classList.toggle('missing-translation', missing);
     }
 
     // ── Selection ──────────────────────────────────────────────
@@ -521,14 +533,24 @@ export class TestEditProvider {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (isEditing) {
-          // 確定: 次のセルへ移動
           stopEditing(td);
+          const colIdx = parseInt(td.dataset.col, 10);
           const tr = td.closest('tr');
-          const next = tr.nextElementSibling;
-          if (next) {
-            const colIdx = parseInt(td.dataset.col, 10);
-            const target = next.children[colIdx];
-            if (target) { moveToCell(target); }
+          const nextRow = tr.nextElementSibling;
+          if (nextRow) {
+            // 通常: 同列の次の行へ
+            const target = nextRow.children[colIdx];
+            if (target) { singleClickEdit ? moveToCell(target) : navigateToCell(target); }
+          } else {
+            // 最終行: 次のeditable列の先頭行へ
+            let nextColIdx = colIdx + 1;
+            while (nextColIdx < columns.length && !columns[nextColIdx].editable) { nextColIdx++; }
+            const destColIdx = nextColIdx < columns.length ? nextColIdx : colIdx;
+            const firstRow = tbody.firstElementChild;
+            if (firstRow) {
+              const target = firstRow.children[destColIdx];
+              if (target) { singleClickEdit ? moveToCell(target) : navigateToCell(target); }
+            }
           }
         } else {
           // 非編集中: 編集開始（editableなら）
@@ -550,7 +572,7 @@ export class TestEditProvider {
           const target = next.children[colIdx];
           if (target) {
             if (isEditing) stopEditing(td);
-            moveToCell(target);
+            singleClickEdit ? moveToCell(target) : navigateToCell(target);
           }
         }
         return;
@@ -568,9 +590,11 @@ export class TestEditProvider {
           else if (col.kind === 'locale') original = rows[rowIdx].values[col.locale] || '';
           td.textContent = original;
           stopEditing(td);
-          td.blur();
+          selectCell(td);
+          td.focus();
+        } else {
+          selectCell(null);
         }
-        selectCell(null);
         return;
       }
     });
