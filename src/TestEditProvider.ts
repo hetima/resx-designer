@@ -85,7 +85,7 @@ export class TestEdit {
       { enableScripts: true },
     );
 
-    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
+    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS, "Test Edit Panel");
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
@@ -112,7 +112,7 @@ export class TestEditProvider {
 
   // ── Webview HTML ────────────────────────────────────────────────
 
-  public buildHtml(columns: any[], rows: any[]): string {
+  public buildHtml(columns: any[], rows: any[], title: string = ''): string {
     const config = vscode.workspace.getConfiguration("resx");
     const fontFamily = config.get<string>("fontFamily", "");
     const fontSize = config.get<number>("fontSize", 0);
@@ -126,6 +126,7 @@ export class TestEditProvider {
     const fontSizeStr = fontSize > 0 ? `${fontSize}px` : "inherit";
     const nonce = this.getNonce();
 
+    const titleHtml = title ? `<div class="page-title">${title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
     const columnsJson = JSON.stringify(columns);
     const rowsJson = JSON.stringify(rows);
 
@@ -154,6 +155,8 @@ export class TestEditProvider {
       user-select: none;
     }
     .table-container { overflow: auto; flex: 1; }
+    .page-title {padding: 4px 20px; font-weight: 600; font-size: 1.5em; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .toolbar { height: 32px; display: flex; align-items: center; padding: 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--resx-border); flex-shrink: 0; gap: 4px; }
     table { border-collapse: collapse; width: max-content; }
     th, td {
       padding: ${cellPadding}px 8px;
@@ -219,6 +222,8 @@ export class TestEditProvider {
   </style>
 </head>
 <body data-singleclickedit="${singleClickEdit}">
+  ${titleHtml}
+  <div class="toolbar" id="toolbar"></div>
   <div class="table-container" id="container">
     <table>
       <thead id="thead"></thead>
