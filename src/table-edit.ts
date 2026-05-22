@@ -818,18 +818,45 @@ export class TableEditProvider {
         return;
       }
 
-      // Ctrl+C: copy selected cell text
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        if (active && active.contentEditable === 'true' && window.getSelection()?.toString()) {
-          return; // let browser handle native copy
+      // Ctrl+V: paste clipboard text into selected editable cell (not editing)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (active && active.contentEditable === 'true') {
+          return; // editing: let browser handle
         }
-        const td = (active?.closest('td')) || selectedTd;
-        if (td) {
-          e.preventDefault();
-          const text = td.textContent || '';
-          navigator.clipboard.writeText(text).catch(() => {
-            vscode.postMessage({ type: 'copyToClipboard', text });
-          });
+        if (selectedTd && !editing.has(selectedTd) && selectedTd.classList.contains('editable')) {
+          navigator.clipboard.readText().then(text => {
+            if (!text) return;
+            e.preventDefault();
+            const rowIdx = parseInt(selectedTd.dataset.row, 10);
+            const colIdx = parseInt(selectedTd.dataset.col, 10);
+            const col = columns[colIdx];
+            let oldValue = '';
+            if (col.kind === 'name') oldValue = rows[rowIdx].name;
+            else if (col.kind === 'comment') oldValue = rows[rowIdx].comment;
+            else if (col.kind === 'locale') oldValue = rows[rowIdx].values[col.locale] || '';
+            if (oldValue === text) return;
+            if (col.kind === 'name') rows[rowIdx].name = text;
+            else if (col.kind === 'comment') rows[rowIdx].comment = text;
+            else if (col.kind === 'locale') rows[rowIdx].values[col.locale] = text;
+            selectedTd.textContent = text;
+            updateMissingState(selectedTd);
+            _recordChange({ kind: 'cell', row: rowIdx, col: colIdx, field: col.kind === 'locale' ? 'value' : col.kind, oldValue, newValue: text });
+          }).catch(() => {});
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        if (active && active.contentEditable === 'true') {
+          return; // editing: let browser handle
+        }
+        if (selectedTd && !editing.has(selectedTd)) {
+          const text = selectedTd.textContent || '';
+          if (text) {
+            e.preventDefault();
+            navigator.clipboard.writeText(text).catch(() => {
+              vscode.postMessage({ type: 'copyToClipboard', text });
+            });
+          }
         }
         return;
       }
