@@ -16,10 +16,134 @@ export interface ToolbarButton {
   onClick: (btn: HTMLButtonElement) => void;
 }
 
+// ─── Table change record (delta) ────────────────────────────────
+
+export interface TableCellChange {
+  kind: 'cell';
+  row: number;
+  col?: number;
+  field?: string;
+  locale?: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface TableStructuralChange {
+  kind: 'structural';
+  snapshotRows: number;
+  currentRows: number;
+}
+
+export type TableChange = TableCellChange | TableStructuralChange;
+
+// ─── Options ────────────────────────────────────────────────────
+
+export interface TableEditOptions {
+  /** Called when dirty state changes. */
+  onDirtyChange?: (isDirty: boolean) => void;
+  /** Called when an undo is performed. */
+  onUndo?: () => void;
+  /** Called when a redo is performed. */
+  onRedo?: () => void;
+}
 
 
 export class TableEditProvider {
-  constructor() {}
+  private _panel?: vscode.WebviewPanel;
+  private _isDirty = false;
+  private _canUndo = false;
+  private _canRedo = false;
+  private _disposables: vscode.Disposable[] = [];
+  private _onDirtyChange?: (isDirty: boolean) => void;
+  private _onUndo?: () => void;
+  private _onRedo?: () => void;
+  private _pendingChangesResolve: ((changes: TableChange[]) => void) | null = null;
+
+  constructor(options?: TableEditOptions) {
+    this._onDirtyChange = options?.onDirtyChange;
+    this._onUndo = options?.onUndo;
+    this._onRedo = options?.onRedo;
+  }
+
+  /** Attach to a webview panel to handle messages. Call after `buildHtml` and setting `panel.webview.html`. */
+  public attach(panel: vscode.WebviewPanel): void {
+    this._panel = panel;
+    const sub = panel.webview.onDidReceiveMessage(msg => this._handleMessage(msg));
+    this._disposables.push(sub);
+    panel.onDidDispose(() => this._disposables.forEach(d => d.dispose()), null, this._disposables);
+  }
+
+  // ── Public state ───────────────────────────────────────────────
+
+  public get isDirty(): boolean { return this._isDirty; }
+  public get canUndo(): boolean { return this._canUndo; }
+  public get canRedo(): boolean { return this._canRedo; }
+
+  // ── Public actions ─────────────────────────────────────────────
+
+  /** Send undo command to the webview. */
+  public performUndo(): void {
+    this._panel?.webview.postMessage({ type: 'undo' });
+  }
+
+  /** Send redo command to the webview. */
+  public performRedo(): void {
+    this._panel?.webview.postMessage({ type: 'redo' });
+  }
+
+  /** Reset the dirty baseline (call after successful save). */
+  public resetDirty(): void {
+    this._panel?.webview.postMessage({ type: 'resetSnapshot' });
+    this._isDirty = false;
+    this._canUndo = false;
+    this._canRedo = false;
+  }
+
+  /** Request the current changes vs the baseline. Resolves when the webview responds. */
+  public async getChanges(): Promise<TableChange[]> {
+    if (!this._panel) return [];
+    return new Promise<TableChange[]>(resolve => {
+      this._pendingChangesResolve = resolve;
+      this._panel!.webview.postMessage({ type: 'requestChanges' });
+      // Timeout after 2s
+      setTimeout(() => {
+        if (this._pendingChangesResolve === resolve) {
+          this._pendingChangesResolve = null;
+          resolve([]);
+        }
+      }, 2000);
+    });
+  }
+
+  /** Dispose all resources. */
+  public dispose(): void {
+    this._disposables.forEach(d => d.dispose());
+    this._disposables = [];
+    this._panel = undefined;
+  }
+
+  // ── Private ────────────────────────────────────────────────────
+
+  private _handleMessage(msg: any): void {
+    switch (msg.type) {
+      case 'tableEditDirty':
+        this._isDirty = !!msg.isDirty;
+        this._onDirtyChange?.(this._isDirty);
+        break;
+      case 'tableEditUndo':
+        this._onUndo?.();
+        break;
+      case 'tableEditRedo':
+        this._onRedo?.();
+        break;
+      case 'tableEditChanges':
+        if (this._pendingChangesResolve) {
+          this._pendingChangesResolve(msg.changes ?? []);
+          this._pendingChangesResolve = null;
+        }
+        break;
+    }
+  }
 
   // ── Webview HTML ────────────────────────────────────────────────
 
@@ -228,6 +352,158 @@ export class TableEditProvider {
     const thead = document.getElementById('thead');
     const tbody = document.getElementById('tbody');
 
+    // ── Table state (dirty, undo/redo) ─────────────────────────
+    let _undoStack = [];
+    let _redoStack = [];
+    let _snapshotRows = [];
+    let _dirty = false;
+    let _pendingEdit = null; // { row, col, field, oldValue }
+
+    function _cloneRows(src) {
+      return src.map(r => ({
+        name: r.name, comment: r.comment,
+        values: { ...r.values },
+        menu: r.menu, menuTitle: r.menuTitle,
+      }));
+    }
+    function _rowsEqual(a, b) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (a[i].name !== b[i].name || a[i].comment !== b[i].comment) return false;
+        const keysA = Object.keys(a[i].values), keysB = Object.keys(b[i].values);
+        if (keysA.length !== keysB.length) return false;
+        for (const k of keysA) {
+          if (a[i].values[k] !== b[i].values[k]) return false;
+        }
+      }
+      return true;
+    }
+    function _takeSnapshot() {
+      _snapshotRows = _cloneRows(rows);
+      _undoStack = [];
+      _redoStack = [];
+      _dirty = false;
+      _notifyHost('tableEditDirty', { isDirty: false });
+    }
+    function _recalcDirty() {
+      const was = _dirty;
+      _dirty = !_rowsEqual(_snapshotRows, rows);
+      if (was !== _dirty) _notifyHost('tableEditDirty', { isDirty: _dirty });
+    }
+    function _recordChange(change) {
+      _undoStack.push(change);
+      _redoStack = [];
+      _recalcDirty();
+    }
+    function _performUndo() {
+      if (_undoStack.length === 0) return false;
+      const change = _undoStack.pop();
+      _applyInverse(change);
+      _redoStack.push(change);
+      _recalcDirty();
+      renderBody();
+      _notifyHost('tableEditUndo', { isDirty: _dirty });
+      return true;
+    }
+    function _performRedo() {
+      if (_redoStack.length === 0) return false;
+      const change = _redoStack.pop();
+      _applyForward(change);
+      _undoStack.push(change);
+      _recalcDirty();
+      renderBody();
+      _notifyHost('tableEditRedo', { isDirty: _dirty });
+      return true;
+    }
+    function _getChanges() {
+      if (_snapshotRows.length !== rows.length) {
+        return [{ kind: 'structural', snapshotRows: _snapshotRows.length, currentRows: rows.length }];
+      }
+      const changes = [];
+      for (let r = 0; r < rows.length; r++) {
+        if (rows[r].name !== _snapshotRows[r].name)
+          changes.push({ kind: 'cell', row: r, field: 'name', oldValue: _snapshotRows[r].name, newValue: rows[r].name });
+        if (rows[r].comment !== _snapshotRows[r].comment)
+          changes.push({ kind: 'cell', row: r, field: 'comment', oldValue: _snapshotRows[r].comment, newValue: rows[r].comment });
+        const curV = rows[r].values, snapV = _snapshotRows[r].values;
+        const allLoc = new Set([...Object.keys(curV), ...Object.keys(snapV)]);
+        for (const loc of allLoc) {
+          const cv = curV[loc] ?? '', sv = snapV[loc] ?? '';
+          if (cv !== sv) {
+            const ci = columns.findIndex(c => c.kind === 'locale' && c.locale === loc);
+            changes.push({ kind: 'cell', row: r, col: ci, locale: loc, oldValue: sv, newValue: cv });
+          }
+        }
+      }
+      return changes;
+    }
+    function _notifyHost(type, payload) {
+      try { vscode.postMessage({ type, ...payload }); } catch {}
+    }
+    function _applyInverse(change) {
+      switch (change.kind) {
+        case 'cell': {
+          const row = rows[change.row]; if (!row) return;
+          if (change.field === 'name') row.name = change.oldValue;
+          else if (change.field === 'comment') row.comment = change.oldValue;
+          else if (change.field === 'value') { const col = columns[change.col]; if (col) row.values[col.locale] = change.oldValue; }
+          break;
+        }
+        case 'addRow': rows.splice(change.index, 1); break;
+        case 'deleteRow': rows.splice(change.index, 0, change.rowData); break;
+        case 'sort': {
+          const snapNames = _snapshotRows.map(r => r.name);
+          const rowMap = new Map(rows.map(r => [r.name, r]));
+          rows.length = 0;
+          for (const name of snapNames) { const e = rowMap.get(name); if (e) rows.push(e); }
+          const snapSet = new Set(snapNames);
+          for (const r of rowMap.values()) { if (!snapSet.has(r.name)) rows.push(r); }
+          break;
+        }
+        case 'deleteRows': {
+          const sorted = [...change.rowsData].sort((a, b) => a.index - b.index);
+          for (let i = sorted.length - 1; i >= 0; i--) rows.splice(sorted[i].index, 0, sorted[i].data);
+          break;
+        }
+      }
+    }
+    function _applyForward(change) {
+      switch (change.kind) {
+        case 'cell': {
+          const row = rows[change.row]; if (!row) return;
+          if (change.field === 'name') row.name = change.newValue;
+          else if (change.field === 'comment') row.comment = change.newValue;
+          else if (change.field === 'value') { const col = columns[change.col]; if (col) row.values[col.locale] = change.newValue; }
+          break;
+        }
+        case 'addRow': rows.splice(change.index, 0, change.rowData); break;
+        case 'deleteRow': rows.splice(change.index, 1); break;
+        case 'sort': {
+          const rowMap = new Map(rows.map(r => [r.name, r]));
+          rows.length = 0;
+          for (const name of change.newOrder) { const e = rowMap.get(name); if (e) rows.push(e); }
+          const sortedSet = new Set(change.newOrder);
+          for (const r of rowMap.values()) { if (!sortedSet.has(r.name)) rows.push(r); }
+          break;
+        }
+        case 'deleteRows': {
+          const indices = change.rowsData.map(r => r.index).sort((a, b) => b - a);
+          for (const idx of indices) rows.splice(idx, 1);
+          break;
+        }
+      }
+    }
+    // Expose for host API calls via message
+    window.__tableState = {
+      isDirty: () => _dirty,
+      canUndo: () => _undoStack.length > 0,
+      canRedo: () => _redoStack.length > 0,
+      getChanges: () => _getChanges(),
+      undo: () => _performUndo(),
+      redo: () => _performRedo(),
+      takeSnapshot: () => _takeSnapshot(),
+    };
+
     // ── Toolbar ────────────────────────────────────────────────
 
     const toolbarDef = ${toolbarButtonsJson};
@@ -399,6 +675,15 @@ export class TableEditProvider {
       td.contentEditable = 'true';
       editing.add(td);
       td.classList.add('editing');
+      // Store original value for undo tracking
+      const rowIdx = parseInt(td.dataset.row, 10);
+      const colIdx = parseInt(td.dataset.col, 10);
+      const col = columns[colIdx];
+      let field = 'value', oldValue = '';
+      if (col.kind === 'name') { field = 'name'; oldValue = rows[rowIdx].name; }
+      else if (col.kind === 'comment') { field = 'comment'; oldValue = rows[rowIdx].comment; }
+      else if (col.kind === 'locale') { field = 'value'; oldValue = rows[rowIdx].values[col.locale] || ''; }
+      _pendingEdit = { row: rowIdx, col: colIdx, field, oldValue };
     }
 
     function stopEditing(td) {
@@ -407,6 +692,19 @@ export class TableEditProvider {
       editing.delete(td);
       td.classList.remove('editing');
       updateMissingState(td);
+      // Record change if value actually changed
+      if (_pendingEdit) {
+        const p = _pendingEdit;
+        const newRow = rows[p.row];
+        let newValue = '';
+        if (p.field === 'name') newValue = newRow.name;
+        else if (p.field === 'comment') newValue = newRow.comment;
+        else if (p.field === 'value') newValue = newRow.values[columns[p.col].locale] || '';
+        if (p.oldValue !== newValue) {
+          _recordChange({ kind: 'cell', row: p.row, col: p.col, field: p.field, oldValue: p.oldValue, newValue });
+        }
+        _pendingEdit = null;
+      }
     }
 
     function updateMissingState(td) {
@@ -491,6 +789,19 @@ export class TableEditProvider {
 
     document.addEventListener('keydown', (e) => {
       const active = document.activeElement;
+
+      // Ctrl+Z / Cmd+Z: undo
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        _performUndo();
+        return;
+      }
+      // Ctrl+Y / Ctrl+Shift+Z / Cmd+Shift+Z: redo
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z') || (e.shiftKey && e.key === 'Z'))) {
+        e.preventDefault();
+        _performRedo();
+        return;
+      }
 
       // Ctrl+F: open search panel
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
@@ -626,6 +937,14 @@ export class TableEditProvider {
           return;
         }
         if (isEditing) {
+          // Revert rows data too (input handler has been mutating it)
+          if (_pendingEdit) {
+            const p = _pendingEdit;
+            if (p.field === 'name') rows[p.row].name = p.oldValue;
+            else if (p.field === 'comment') rows[p.row].comment = p.oldValue;
+            else if (p.field === 'value') rows[p.row].values[columns[p.col].locale] = p.oldValue;
+            _pendingEdit = null;
+          }
           const rowIdx = parseInt(td.dataset.row, 10);
           const colIdx = parseInt(td.dataset.col, 10);
           const col = columns[colIdx];
@@ -904,11 +1223,24 @@ export class TableEditProvider {
       }
     });
 
+    // ── Host → Webview messages (table state commands) ─────────
+
+    window.addEventListener('message', (e) => {
+      const msg = e.data;
+      if (msg.type === 'undo') { _performUndo(); }
+      else if (msg.type === 'redo') { _performRedo(); }
+      else if (msg.type === 'resetSnapshot') { _takeSnapshot(); }
+      else if (msg.type === 'requestChanges') {
+        _notifyHost('tableEditChanges', { changes: _getChanges() });
+      }
+    });
+
     // ── Init ───────────────────────────────────────────────────
 
     renderHeader();
     renderBody();
     setupToolbar();
+    _takeSnapshot();
   </script>
 </body>
 </html>`;

@@ -175,8 +175,6 @@ export class TestEdit {
       return;
     }
 
-    const htmlProvider = new TableEditProvider();
-
     this.panel = vscode.window.createWebviewPanel(
       TestEdit.viewType,
       "RESX Test Edit",
@@ -184,7 +182,13 @@ export class TestEdit {
       { enableScripts: true },
     );
 
+    const htmlProvider = new TableEditProvider({
+      onDirtyChange: (dirty) => {
+        console.log(`[TestEdit] dirty = ${dirty}`);
+      },
+    });
     this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
+    htmlProvider.attach(this.panel);
 
     // Handle webview messages
     const messageSub = this.panel.webview.onDidReceiveMessage((msg: any) => {
@@ -213,6 +217,7 @@ export class TestEdit {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
+      htmlProvider.dispose();
       messageSub.dispose();
       themeSub.dispose();
     });
