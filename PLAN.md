@@ -37,12 +37,11 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 |---------|------|------|
 | 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ✅ |
 | 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ✅ |
-| 1-E | Action menu（⋮） | ⬜ |
-| 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ⬜ |
+| 1-E | Action menu（⋮） | ✅ |
+| 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ✅ |
 | 1-G | Dialogs（Add Language, Add Key） | ⬜ |
-| 1-H | Find & Replace UI 枠（ハイライトロジックは後） | ⬜ |
+| 1-H | Find UI | ✅ |
 | 1-I | コピー機能 | ✅ |
-| 1-J | 検索機能 | ⬜ |
 
 ### 各ステップの詳細
 
@@ -67,17 +66,6 @@ TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 - Add Language: ロケール入力 + Fill Defaults チェックボックス + OK/Cancel
 - Add Key: キー名入力 + Add to All Languages チェックボックス + OK/Cancel
 - メッセージ: `addLocale`, `addKey` → `addLocaleResult`, `addKeyResult` で結果表示
-
-#### 1-H: Find UI
-- 置き換え機能は不要
-- Find widget HTML（`#findReplaceWidget`）を追加
-- toolbarに直接置いても良いかもしれない
-- 入力欄 + Aa/ab/.* トグル + ↑↓✕ ボタン
-- `findMatches` メッセージ送信 → `findMatchesResult` でハイライト
-- ハイライト描画ロジックは後で実装
-
-
-#### 1-J: 検索機能
 
 ---
 

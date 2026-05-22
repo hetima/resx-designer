@@ -83,6 +83,21 @@ const DUMMY_ROWS = [
   },
 ];
 
+// ─── Toolbar button definition ──────────────────────────────────
+
+export interface ToolbarButton {
+  /** Unique id; used as data-action on the element. */
+  id: string;
+  /** SVG string or text label rendered inside the button. */
+  icon: string;
+  /** Tooltip shown on hover. */
+  title?: string;
+  /** 'left' (default) or 'right'. */
+  align?: 'left' | 'right';
+  /** Called when the button is clicked. Receives the button element. */
+  onClick: (btn: HTMLButtonElement) => void;
+}
+
 // ─── Provider ─────────────────────────────────────────────────────
 
 export class TestEdit {
@@ -107,7 +122,7 @@ export class TestEdit {
       { enableScripts: true },
     );
 
-    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS, "Test Edit Panel");
+    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
 
     // Handle webview messages
     const messageSub = this.panel.webview.onDidReceiveMessage((msg: any) => {
@@ -148,7 +163,7 @@ export class TestEditProvider {
 
   // ── Webview HTML ────────────────────────────────────────────────
 
-  public buildHtml(columns: any[], rows: any[], title: string = ''): string {
+  public buildHtml(columns: any[], rows: any[], title: string = '', toolbarButtons: ToolbarButton[] = []): string {
     const config = vscode.workspace.getConfiguration("resx");
     const fontFamily = config.get<string>("fontFamily", "");
     const fontSize = config.get<number>("fontSize", 0);
@@ -162,9 +177,31 @@ export class TestEditProvider {
     const fontSizeStr = fontSize > 0 ? `${fontSize}px` : "inherit";
     const nonce = this.getNonce();
 
-    const titleHtml = title ? `<div class="page-title">${title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
+    const titleHtml = title
+      ? `<div class="page-title">${title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+      : `<div class="page-title">&nbsp;</div>`;
     const columnsJson = JSON.stringify(columns);
     const rowsJson = JSON.stringify(rows);
+
+    // Built-in toolbar buttons (always added internally)
+    const builtinButtons: ToolbarButton[] = [
+      {
+        id: '__search',
+        icon: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="9.85" y1="9.85" x2="13.5" y2="13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        title: 'Search (Ctrl+F)',
+        align: 'right',
+        onClick: () => { /* handled in webview via id */ },
+      },
+    ];
+    const allButtons = [...toolbarButtons, ...builtinButtons];
+
+    // Serialize button metadata (id, icon, title, align) — onClick is wired in JS
+    const toolbarButtonsJson = JSON.stringify(allButtons.map(b => ({
+      id: b.id,
+      icon: b.icon,
+      title: b.title ?? '',
+      align: b.align ?? 'left',
+    })));
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -193,6 +230,11 @@ export class TestEditProvider {
     .table-container { overflow: auto; flex: 1; }
     .page-title {padding: 4px 20px; font-weight: 600; font-size: 1.5em; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .toolbar { height: 32px; display: flex; align-items: center; padding: 0 4px; margin-bottom: 4px; border-bottom: 1px solid var(--resx-border); flex-shrink: 0; gap: 4px; }
+    .toolbar-spacer { flex: 1; }
+    .toolbar-btn { background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--resx-fg); cursor: pointer; padding: 2px 6px; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
+    .toolbar-btn:hover { background: var(--resx-header-btn-hover-bg); border-color: var(--resx-border); }
+    .toolbar-btn:disabled { opacity: 0.35; cursor: default; }
+    .toolbar-btn svg { display: block; }
     table { border-collapse: collapse; width: max-content; }
     th, td {
       padding: ${cellPadding}px 8px;
@@ -266,9 +308,37 @@ export class TestEditProvider {
     .action-menu-item.danger { color: var(--vscode-notificationsErrorIcon-foreground, #f44); }
     .action-menu-item.danger:hover { background: rgba(255,80,80,0.1); }
     .action-menu-separator { height: 1px; background: var(--resx-border); margin: 4px 8px; }
+
+    /* Search panel */
+    .search-panel { position: fixed; top: 0; right: 0; z-index: 8000; display: flex; align-items: center; gap: 6px; padding: 7px 12px; background: var(--resx-body); border: 1px solid var(--resx-border); border-top: none; border-right: none; border-radius: 0 0 0 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-size: 13px; }
+    .search-panel.hidden { display: none; }
+    .search-input { background: var(--vscode-input-background, #3c3c3c); color: var(--vscode-input-foreground, #ccc); border: 1px solid var(--vscode-input-border, #555); border-radius: 3px; padding: 4px 8px; font-size: 13px; width: 220px; outline: none; }
+    .search-input:focus { border-color: var(--vscode-focusBorder); }
+    .search-input.no-match { border-color: var(--vscode-inputValidation-errorBorder, #f44); background: var(--vscode-inputValidation-errorBackground, #5a1d1d); }
+    .search-btn { background: transparent; border: 1px solid transparent; border-radius: 3px; color: var(--resx-fg); cursor: pointer; padding: 3px 7px; font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center; min-width: 26px; min-height: 26px; }
+    .search-btn:hover { background: var(--resx-header-btn-hover-bg); border-color: var(--resx-border); }
+    .search-btn:disabled { opacity: 0.35; cursor: default; }
+    .search-btn:disabled:hover { background: transparent; border-color: transparent; }
+    .search-toggle { padding: 3px 8px; font-size: 12px; }
+    .search-toggle.active { background: var(--vscode-button-background, #0e639c); color: var(--vscode-button-foreground, #fff); border-color: transparent; }
+    .search-count { font-size: 12px; color: var(--resx-fg); opacity: 0.7; min-width: 72px; text-align: center; white-space: nowrap; }
+    .search-sep { width: 1px; height: 18px; background: var(--resx-border); margin: 0 2px; }
+
+    /* Search hit highlight */
+    td.search-hit { border-left: 3px solid var(--vscode-editor-findMatchHighlightBorder, #ea5c00) !important; }
   </style>
 </head>
 <body data-singleclickedit="${singleClickEdit}">
+  <div class="search-panel hidden" id="search-panel">
+    <input class="search-input" id="search-input" type="text" placeholder="Search..." spellcheck="false">
+    <button class="search-btn search-toggle" id="search-case" title="Match Case (Alt+C)">Aa</button>
+    <div class="search-sep"></div>
+    <span class="search-count" id="search-count"></span>
+    <button class="search-btn" id="search-prev" title="Previous (Shift+Enter / Shift+F3)">&#x25B4;</button>
+    <button class="search-btn" id="search-next" title="Next (Enter / F3)">&#x25BE;</button>
+    <div class="search-sep"></div>
+    <button class="search-btn" id="search-close" title="Close (Esc)">&#x2715;</button>
+  </div>
   ${titleHtml}
   <div class="toolbar" id="toolbar"></div>
   <div class="table-container" id="container">
@@ -288,6 +358,47 @@ export class TestEditProvider {
     const editing = new WeakSet();
     const thead = document.getElementById('thead');
     const tbody = document.getElementById('tbody');
+
+    // ── Toolbar ────────────────────────────────────────────────
+
+    const toolbarDef = ${toolbarButtonsJson};
+
+    function setupToolbar() {
+      const bar = document.getElementById('toolbar');
+      const leftFrag = document.createDocumentFragment();
+      const rightFrag = document.createDocumentFragment();
+      let hasRight = false;
+
+      toolbarDef.forEach(def => {
+        const btn = document.createElement('button');
+        btn.className = 'toolbar-btn';
+        btn.dataset.action = def.id;
+        btn.innerHTML = def.icon;
+        if (def.title) btn.title = def.title;
+        btn.addEventListener('click', () => handleToolbarAction(def.id, btn));
+        if (def.align === 'right') {
+          rightFrag.appendChild(btn);
+          hasRight = true;
+        } else {
+          leftFrag.appendChild(btn);
+        }
+      });
+
+      bar.appendChild(leftFrag);
+      if (hasRight) {
+        const spacer = document.createElement('div');
+        spacer.className = 'toolbar-spacer';
+        bar.appendChild(spacer);
+        bar.appendChild(rightFrag);
+      }
+    }
+
+    function handleToolbarAction(id, btn) {
+      // Built-in actions
+      if (id === '__search') { openSearch(); return; }
+      // User-defined: notify host
+      vscode.postMessage({ type: 'toolbarAction', actionId: id });
+    }
 
     // ── Helpers ────────────────────────────────────────────────
 
@@ -383,29 +494,28 @@ export class TestEditProvider {
     }
 
     function setupEditable(td) {
-      // contentEditable は startEditing() で有効化する。
-      // singleClickEdit の有無にかかわらず初期状態では false にしておくことで、
-      // カーソル移動（キーボードナビゲーション）によるフォーカスだけでは
-      // 編集モードに入らないようにする。
+      // contentEditable is enabled in startEditing().
+      // Keep it false initially regardless of singleClickEdit so that
+      // focus from keyboard navigation alone does not start editing.
       td.contentEditable = 'false';
       td.tabIndex = 0;
     }
 
     function setupReadonly(td) {
-      // 編集不可でもフォーカス可能にする（index/action以外）
+      // Allow focus on read-only cells (except index/action)
       const col = columns[parseInt(td.dataset.col, 10)];
       if (col.kind !== 'index' && col.kind !== 'action') {
         td.tabIndex = 0;
       }
     }
 
-    // キーボードナビゲーション用: 選択とフォーカスのみ、編集開始しない
+    // Keyboard navigation: select and focus only, do not start editing
     function navigateToCell(target) {
       selectCell(target);
       target.focus();
     }
 
-    // Tab/Enter確定後など、編集継続が期待される移動用
+    // For Tab/Enter after confirm: editing is expected to continue
     function moveToCell(target) {
       selectCell(target);
       if (!singleClickEdit && target.classList.contains('editable') && !editing.has(target)) {
@@ -463,7 +573,7 @@ export class TestEditProvider {
           startEditing(td);
           focusEnd(td);
         }
-        // 編集中はクリック位置にカーソルを維持（focusEndしない）
+        // keep cursor position on click while editing
       }
     });
 
@@ -514,6 +624,21 @@ export class TestEditProvider {
     document.addEventListener('keydown', (e) => {
       const active = document.activeElement;
 
+      // Ctrl+F: open search panel
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        openSearch();
+        return;
+      }
+
+      // F3 / Shift+F3 / Ctrl+G: search navigation (open panel if closed)
+      if (e.key === 'F3' || ((e.ctrlKey || e.metaKey) && e.key === 'g')) {
+        e.preventDefault();
+        if (searchPanel.classList.contains('hidden')) { openSearch(); return; }
+        searchNavigate(e.shiftKey ? -1 : +1);
+        return;
+      }
+
       // Ctrl+C: copy selected cell text
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (active && active.contentEditable === 'true' && window.getSelection()?.toString()) {
@@ -536,9 +661,10 @@ export class TestEditProvider {
       const _isEditingActive = _activeTd && editing.has(_activeTd);
       if (_isEditingActive && active.contentEditable === 'true') {
         if (window.getSelection()?.toString()) {
-          return; // テキスト選択中 — ブラウザに任せる
+          // let browser handle text selection
+          return;
         }
-        // 編集中は左右矢印をセル移動に使わない
+        // do not use arrow keys for cell navigation while editing
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
       }
 
@@ -586,11 +712,11 @@ export class TestEditProvider {
           const tr = td.closest('tr');
           const nextRow = tr.nextElementSibling;
           if (nextRow) {
-            // 通常: 同列の次の行へ
+            // normal: move to next row in same column
             const target = nextRow.children[colIdx];
             if (target) { singleClickEdit ? moveToCell(target) : navigateToCell(target); }
           } else {
-            // 最終行: 次のeditable列の先頭行へ
+            // last row: move to first row of next editable column
             let nextColIdx = colIdx + 1;
             while (nextColIdx < columns.length && !columns[nextColIdx].editable) { nextColIdx++; }
             const destColIdx = nextColIdx < columns.length ? nextColIdx : colIdx;
@@ -626,8 +752,12 @@ export class TestEditProvider {
         return;
       }
 
-      // Escape: cancel edit
+      // Escape: close search panel if open, otherwise cancel edit or deselect
       if (e.key === 'Escape') {
+        if (!searchPanel.classList.contains('hidden')) {
+          closeSearch();
+          return;
+        }
         if (isEditing) {
           const rowIdx = parseInt(td.dataset.row, 10);
           const colIdx = parseInt(td.dataset.col, 10);
@@ -787,10 +917,131 @@ export class TestEditProvider {
       resizing = null;
     });
 
+    // ── Search ─────────────────────────────────────────────────
+
+    const searchPanel   = document.getElementById('search-panel');
+    const searchInput   = document.getElementById('search-input');
+    const searchCase    = document.getElementById('search-case');
+    const searchPrev    = document.getElementById('search-prev');
+    const searchNext    = document.getElementById('search-next');
+    const searchClose   = document.getElementById('search-close');
+    const searchCount   = document.getElementById('search-count');
+
+    let searchHits      = [];  // Array<td>
+    let searchCursor    = -1;
+    let caseSensitive   = false;
+
+    function getCellText(td) {
+      return td.textContent || '';
+    }
+
+    function runSearch() {
+      const query = searchInput.value;
+      searchHits.forEach(td => td.classList.remove('search-hit'));
+      searchHits = [];
+      searchCursor = -1;
+
+      if (!query) {
+        searchCount.textContent = '';
+        searchInput.classList.remove('no-match');
+        updateSearchNavButtons();
+        return;
+      }
+
+      const needle = caseSensitive ? query : query.toLowerCase();
+      tbody.querySelectorAll('td').forEach(td => {
+        const col = columns[parseInt(td.dataset.col, 10)];
+        if (!col || col.kind === 'index' || col.kind === 'action') return;
+        const hay = caseSensitive ? getCellText(td) : getCellText(td).toLowerCase();
+        if (hay.includes(needle)) searchHits.push(td);
+      });
+
+      searchHits.forEach(td => td.classList.add('search-hit'));
+      searchInput.classList.toggle('no-match', searchHits.length === 0);
+
+      if (searchHits.length > 0) {
+        // jump to closest hit to current selection, else first
+        let startIdx = 0;
+        if (selectedTd) {
+          const selRow = parseInt(selectedTd.dataset.row, 10);
+          const selCol = parseInt(selectedTd.dataset.col, 10);
+          let best = -1, bestDist = Infinity;
+          searchHits.forEach((td, i) => {
+            const r = parseInt(td.dataset.row, 10);
+            const c = parseInt(td.dataset.col, 10);
+            const dist = Math.abs(r - selRow) * 1000 + Math.abs(c - selCol);
+            if (dist < bestDist) { bestDist = dist; best = i; }
+          });
+          if (best >= 0) startIdx = best;
+        }
+        setSearchCursor(startIdx);
+      } else {
+        searchCount.textContent = '0 results';
+      }
+      updateSearchNavButtons();
+    }
+
+    function setSearchCursor(idx) {
+      if (searchHits.length === 0) return;
+      searchCursor = (idx + searchHits.length) % searchHits.length;
+      const td = searchHits[searchCursor];
+      searchCount.textContent = (searchCursor + 1) + ' of ' + searchHits.length;
+      selectCell(td);
+      td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    function searchNavigate(dir) {
+      if (searchHits.length === 0) return;
+      setSearchCursor(searchCursor + dir);
+    }
+
+    function updateSearchNavButtons() {
+      const has = searchHits.length > 0;
+      searchPrev.disabled = !has;
+      searchNext.disabled = !has;
+    }
+
+    function openSearch() {
+      searchPanel.classList.remove('hidden');
+      searchInput.focus();
+      searchInput.select();
+      if (searchInput.value) runSearch();
+    }
+
+    function closeSearch() {
+      searchPanel.classList.add('hidden');
+      searchHits.forEach(td => td.classList.remove('search-hit'));
+      searchHits = [];
+      searchCursor = -1;
+      searchCount.textContent = '';
+      searchInput.classList.remove('no-match');
+      // search word is preserved
+    }
+
+    searchInput.addEventListener('input', () => runSearch());
+
+    searchCase.addEventListener('click', () => {
+      caseSensitive = !caseSensitive;
+      searchCase.classList.toggle('active', caseSensitive);
+      runSearch();
+    });
+
+    searchNext.addEventListener('click', () => searchNavigate(+1));
+    searchPrev.addEventListener('click', () => searchNavigate(-1));
+    searchClose.addEventListener('click', () => closeSearch());
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        searchNavigate(e.shiftKey ? -1 : +1);
+      }
+    });
+
     // ── Init ───────────────────────────────────────────────────
 
     renderHeader();
     renderBody();
+    setupToolbar();
     console.log('[TestEdit] initialized with', rows.length, 'rows x', columns.length, 'columns');
   </script>
 </body>
