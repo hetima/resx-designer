@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
-import { TestEdit } from './TestEditProvider';
+import { TestEdit } from './TestEdit';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';

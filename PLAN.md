@@ -4,6 +4,8 @@
 
 BulkEditCustomEditorProvider を「汎用編集可能グリッド」に拡張した上で、ResxEditor の webview を BulkEdit のインラインJS方式に移行する。
 
+実装は `src\table-edit.ts`。呼び出し方は `src\TestEdit.ts` を参考にする。
+
 ## 全体の流れ
 
 ```
@@ -20,8 +22,8 @@ src/webview/*.js 削除
 ## 実装済み
 
 ### TestEdit サンドボックス ✅
-- `src/TestEditProvider.ts` を作成 — BulkEdit をベースに独立開発用webview
-- `commands: ["resx.testEdit"]` でパレットから開ける
+- `src/test-edit.ts` を作成 — BulkEdit をベースに独立開発用webview
+- `commands: ["resx.testEdit"]` でパレットから `TestEdit.ts` 経由で開ける
 - ダミーデータ: 7行 × 8列（index, action, name, comment, default, ja, fr, de）
 - 機能: 単一選択（.selected class）、contentEditable編集、↑↓←→ナビゲーション、Enter/Tab、Escape revert、Ctrl+C copy
 - テーマ対応: updateTheme メッセージ
@@ -31,7 +33,7 @@ src/webview/*.js 削除
 
 ## フェーズ1: TestEdit で機能実装（ステップバイステップ）
 
-TestEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が持つ機能を順次取り込む。
+TableEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が持つ機能を順次取り込む。
 
 | ステップ | 内容 | 状態 |
 |---------|------|------|
@@ -83,11 +85,6 @@ TestEdit で実装した機能を BulkEditCustomEditorProvider.ts に移植。
 
 BulkEdit が「汎用グリッド」になった時点で、ResxEditor の移行を大幅に単純化。
 
-### 3-A: ResxEditorProvider の改修
-- `gridRows` 全データ + `columns` JSON を webview に渡す
-- `generateTableHtml()` を削除 → JS 側でテーブル生成
-- CSS は既存の ResxEditor CSS を維持
-
 ### 3-B: ResxEditorController の調整
 - `handleWebviewMessage()`: メッセージ型は変更不要
 - `handleEditCell()`: 列メタデータに基づく処理はそのまま
@@ -107,13 +104,5 @@ BulkEdit が「汎用グリッド」になった時点で、ResxEditor の移行
 ## 決定事項
 
 - うまく動かないときはアドホックな修正でなく、汎用性を考慮して修正する
-- 複数選択（Shift+クリック、ドラッグ範囲）は廃止
-- 列リサイズ: フェーズ1では未実装
 - State persistence / Zoom: フェーズ1では未実装
-- Find ハイライト描画: UI枠だけ実装、ロジックは後で
 
-## 除外スコープ
-
-- 列リサイズのドラッグ機能 — 後で対応
-- State persistence（zoom, scroll, column sizes）— 後で対応
-- Ctrl+A 全選択 — 複数選択廃止に伴い削除

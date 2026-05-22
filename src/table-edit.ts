@@ -1,87 +1,5 @@
-/**
- * TestEditProvider — development sandbox for building the universal grid UI.
- *
- * Opens a standalone webview panel with dummy multi-column data.
- * No file I/O, no resx parsing — pure UI experimentation.
- *
- * Activate via "RESX: Test Edit" command.
- */
-
-import * as vscode from 'vscode';
-import { getThemeCssVariables } from './theme-colors';
-
-// ─── Dummy data (multi-column, like ResxEditor) ──────────────────
-
-const DUMMY_COLUMNS = [
-  { kind: 'index' as const, locale: null, label: '#', editable: false, resizable: false, width: 40 },
-  { kind: 'action' as const, locale: null, label: '', editable: false, resizable: false, width: 24 },
-  { kind: 'name' as const, locale: null, label: 'Name', editable: false, resizable: true, width: 100 },
-  { kind: 'comment' as const, locale: null, label: 'Comment', editable: false, resizable: true, width: 180 },
-  { kind: 'locale' as const, locale: null, label: 'default', editable: true, resizable: true, width: 200 },
-  { kind: 'locale' as const, locale: 'ja', label: 'ja', editable: true, resizable: true, width: 200 },
-  { kind: 'locale' as const, locale: 'fr', label: 'fr', editable: true, resizable: true, width: 200 },
-  { kind: 'locale' as const, locale: 'de', label: 'de', editable: true, resizable: true, width: 100 },
-];
-
-const DUMMY_ROWS = [
-  {
-    name: 'Greeting',
-    comment: 'A friendly greeting',
-    values: { null: 'Hello', ja: 'こんにちは', fr: 'Bonjour', de: 'Hallo' },
-    menuTitle: 'あいさつメッセージ',
-    menu: [
-      { id: 'duplicate', label: '行を複製' },
-      { id: 'separator' },
-      { id: 'delete', label: '削除', danger: true },
-    ],
-  },
-  {
-    name: 'Farewell',
-    comment: 'Saying goodbye',
-    values: { null: 'Goodbye', ja: 'さようなら', fr: 'Au revoir', de: 'Auf Wiedersehen' },
-    menu: [
-      { id: 'duplicate', label: '行を複製' },
-      { id: 'delete', label: '削除', danger: true },
-    ],
-  },
-  {
-    name: 'Error_InvalidInput',
-    comment: 'Validation error',
-    values: { null: 'Invalid input.', ja: '入力が無効です。', fr: '', de: '' },
-    menu: [
-      { id: 'delete', label: '削除', danger: true },
-    ],
-  },
-  {
-    name: 'Button_Save',
-    comment: 'Save button label',
-    values: { null: '&Save', ja: '保存(&S)', fr: 'Enregistrer', de: 'Speichern' },
-    // menu なし → action-col クリックで何も表示しない
-  },
-  {
-    name: 'Button_Cancel',
-    comment: '',
-    values: { null: '&Cancel', ja: 'キャンセル', fr: 'Annuler', de: 'Abbrechen' },
-    // menu なし
-  },
-  {
-    name: 'Confirm_Delete',
-    comment: 'Multi-line\ntest',
-    values: { null: 'Are you sure\nyou want to delete?', ja: '', fr: '', de: '' },
-    menu: [
-      { id: 'delete', label: '削除', danger: true },
-    ],
-  },
-  {
-    name: 'Max_Length_Exceeded',
-    comment: 'This text is intentionally very long to test truncation behavior in the table cells. It should show an ellipsis when truncated and expand on click or edit.',
-    values: { null: 'This is a very long value that should be truncated when displayed in the cell. Click to expand.', ja: 'これはセルに表示される際に切り捨てられるべき非常に長い値です。クリックして展開してください。', fr: 'Ceci est une valeur très longue qui devrait être tronquée...', de: 'Dies ist ein sehr langer Wert, der abgeschnitten werden sollte...' },
-    menu: [
-      { id: 'duplicate', label: '行を複製' },
-      { id: 'delete', label: '削除', danger: true },
-    ],
-  },
-];
+import * as vscode from "vscode";
+import { getThemeCssVariables } from "./theme-colors";
 
 // ─── Toolbar button definition ──────────────────────────────────
 
@@ -98,72 +16,19 @@ export interface ToolbarButton {
   onClick: (btn: HTMLButtonElement) => void;
 }
 
-// ─── Provider ─────────────────────────────────────────────────────
-
-export class TestEdit {
-  public static readonly viewType = "resx.testEdit";
-  private panel: vscode.WebviewPanel | undefined;
-
-  constructor(private readonly context: vscode.ExtensionContext) {}
-
-  /** Open (or reveal) the test edit panel. */
-  open(): void {
-    if (this.panel) {
-      this.panel.reveal();
-      return;
-    }
-
-    const htmlProvider = new TestEditProvider();
-
-    this.panel = vscode.window.createWebviewPanel(
-      TestEdit.viewType,
-      "RESX Test Edit",
-      vscode.ViewColumn.One,
-      { enableScripts: true },
-    );
-
-    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
-
-    // Handle webview messages
-    const messageSub = this.panel.webview.onDidReceiveMessage((msg: any) => {
-      if (msg.type === 'actionMenu') {
-        const row = DUMMY_ROWS[msg.rowIdx];
-        if (!row) return;
-        const action = msg.actionId as string;
-        if (action === 'duplicate') {
-          vscode.window.showInformationMessage(`Duplicate: ${row.name}`);
-        } else if (action === 'delete') {
-          vscode.window.showWarningMessage(`Delete: ${row.name}`);
-        }
-      }
-    });
-
-    // Handle theme updates
-    const themeSub = vscode.window.onDidChangeActiveColorTheme(() => {
-      if (this.panel) {
-        const themeVars = getThemeCssVariables();
-        this.panel.webview.postMessage({
-          type: "updateTheme",
-          cssVars: themeVars,
-        });
-      }
-    });
-
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
-      messageSub.dispose();
-      themeSub.dispose();
-    });
-  }
-}
 
 
-export class TestEditProvider {
+export class TableEditProvider {
   constructor() {}
 
   // ── Webview HTML ────────────────────────────────────────────────
 
-  public buildHtml(columns: any[], rows: any[], title: string = '', toolbarButtons: ToolbarButton[] = []): string {
+  public buildHtml(
+    columns: any[],
+    rows: any[],
+    title: string = "",
+    toolbarButtons: ToolbarButton[] = [],
+  ): string {
     const config = vscode.workspace.getConfiguration("resx");
     const fontFamily = config.get<string>("fontFamily", "");
     const fontSize = config.get<number>("fontSize", 0);
@@ -186,22 +51,26 @@ export class TestEditProvider {
     // Built-in toolbar buttons (always added internally)
     const builtinButtons: ToolbarButton[] = [
       {
-        id: '__search',
+        id: "__search",
         icon: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.5"/><line x1="9.85" y1="9.85" x2="13.5" y2="13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-        title: 'Search (Ctrl+F)',
-        align: 'right',
-        onClick: () => { /* handled in webview via id */ },
+        title: "Search (Ctrl+F)",
+        align: "right",
+        onClick: () => {
+          /* handled in webview via id */
+        },
       },
     ];
     const allButtons = [...toolbarButtons, ...builtinButtons];
 
     // Serialize button metadata (id, icon, title, align) — onClick is wired in JS
-    const toolbarButtonsJson = JSON.stringify(allButtons.map(b => ({
-      id: b.id,
-      icon: b.icon,
-      title: b.title ?? '',
-      align: b.align ?? 'left',
-    })));
+    const toolbarButtonsJson = JSON.stringify(
+      allButtons.map((b) => ({
+        id: b.id,
+        icon: b.icon,
+        title: b.title ?? "",
+        align: b.align ?? "left",
+      })),
+    );
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -290,7 +159,7 @@ export class TestEditProvider {
       position: absolute;
       right: 0;
       top: 0;
-      width: 8px;
+      width: 6px;
       height: 100%;
       cursor: col-resize;
       user-select: none;
@@ -616,7 +485,6 @@ export class TestEditProvider {
       else if (col.kind === 'comment') rows[rowIdx].comment = value;
       else if (col.kind === 'locale') rows[rowIdx].values[col.locale] = value;
 
-      console.log('[TestEdit] cellChanged:', { row: rowIdx, col: colIdx, kind: col.kind, value: value.substring(0, 50) });
     });
 
     // ── Event: keyboard ────────────────────────────────────────
@@ -651,7 +519,6 @@ export class TestEditProvider {
           navigator.clipboard.writeText(text).catch(() => {
             vscode.postMessage({ type: 'copyToClipboard', text });
           });
-          console.log('[TestEdit] copy:', text);
         }
         return;
       }
@@ -1042,7 +909,6 @@ export class TestEditProvider {
     renderHeader();
     renderBody();
     setupToolbar();
-    console.log('[TestEdit] initialized with', rows.length, 'rows x', columns.length, 'columns');
   </script>
 </body>
 </html>`;
