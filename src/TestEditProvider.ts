@@ -28,36 +28,58 @@ const DUMMY_ROWS = [
     name: 'Greeting',
     comment: 'A friendly greeting',
     values: { null: 'Hello', ja: 'こんにちは', fr: 'Bonjour', de: 'Hallo' },
+    menuTitle: 'あいさつメッセージ',
+    menu: [
+      { id: 'duplicate', label: '行を複製' },
+      { id: 'separator' },
+      { id: 'delete', label: '削除', danger: true },
+    ],
   },
   {
     name: 'Farewell',
     comment: 'Saying goodbye',
     values: { null: 'Goodbye', ja: 'さようなら', fr: 'Au revoir', de: 'Auf Wiedersehen' },
+    menu: [
+      { id: 'duplicate', label: '行を複製' },
+      { id: 'delete', label: '削除', danger: true },
+    ],
   },
   {
     name: 'Error_InvalidInput',
     comment: 'Validation error',
     values: { null: 'Invalid input.', ja: '入力が無効です。', fr: '', de: '' },
+    menu: [
+      { id: 'delete', label: '削除', danger: true },
+    ],
   },
   {
     name: 'Button_Save',
     comment: 'Save button label',
     values: { null: '&Save', ja: '保存(&S)', fr: 'Enregistrer', de: 'Speichern' },
+    // menu なし → action-col クリックで何も表示しない
   },
   {
     name: 'Button_Cancel',
     comment: '',
     values: { null: '&Cancel', ja: 'キャンセル', fr: 'Annuler', de: 'Abbrechen' },
+    // menu なし
   },
   {
     name: 'Confirm_Delete',
     comment: 'Multi-line\ntest',
     values: { null: 'Are you sure\nyou want to delete?', ja: '', fr: '', de: '' },
+    menu: [
+      { id: 'delete', label: '削除', danger: true },
+    ],
   },
   {
     name: 'Max_Length_Exceeded',
     comment: 'This text is intentionally very long to test truncation behavior in the table cells. It should show an ellipsis when truncated and expand on click or edit.',
     values: { null: 'This is a very long value that should be truncated when displayed in the cell. Click to expand.', ja: 'これはセルに表示される際に切り捨てられるべき非常に長い値です。クリックして展開してください。', fr: 'Ceci est une valeur très longue qui devrait être tronquée...', de: 'Dies ist ein sehr langer Wert, der abgeschnitten werden sollte...' },
+    menu: [
+      { id: 'duplicate', label: '行を複製' },
+      { id: 'delete', label: '削除', danger: true },
+    ],
   },
 ];
 
@@ -87,8 +109,18 @@ export class TestEdit {
 
     this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS, "Test Edit Panel");
 
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
+    // Handle webview messages
+    const messageSub = this.panel.webview.onDidReceiveMessage((msg: any) => {
+      if (msg.type === 'actionMenu') {
+        const row = DUMMY_ROWS[msg.rowIdx];
+        if (!row) return;
+        const action = msg.actionId as string;
+        if (action === 'duplicate') {
+          vscode.window.showInformationMessage(`Duplicate: ${row.name}`);
+        } else if (action === 'delete') {
+          vscode.window.showWarningMessage(`Delete: ${row.name}`);
+        }
+      }
     });
 
     // Handle theme updates
@@ -102,7 +134,11 @@ export class TestEdit {
       }
     });
 
-    this.panel.onDidDispose(() => themeSub.dispose());
+    this.panel.onDidDispose(() => {
+      this.panel = undefined;
+      messageSub.dispose();
+      themeSub.dispose();
+    });
   }
 }
 
@@ -219,6 +255,17 @@ export class TestEditProvider {
       z-index: 1;
     }
     .resize-handle:hover, .resize-handle.dragging { background: var(--vscode-focusBorder); opacity: 0.6; }
+
+    /* Action menu */
+    .action-menu-overlay { position: fixed; inset: 0; z-index: 9998; }
+    .action-menu { position: fixed; z-index: 9999; min-width: 200px; background: var(--resx-body); border: 1px solid var(--resx-border); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,0.25); padding: 4px; color: var(--resx-fg); font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif); font-size: 13px; }
+    .action-menu-label { padding: 6px 10px; font-weight: 600; font-size: 12px; color: var(--resx-fg); opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--resx-border); margin-bottom: 2px; }
+    .action-menu-item { width: 100%; border: none; background: transparent; color: var(--resx-fg); border-radius: 4px; text-align: left; padding: 5px 10px; cursor: pointer; font-size: 13px; font-family: inherit; display: flex; align-items: center; gap: 8px; }
+    .action-menu-item:hover { background: var(--resx-header-btn-hover-bg); }
+    .action-menu-item.disabled { opacity: 0.4; pointer-events: none; }
+    .action-menu-item.danger { color: var(--vscode-notificationsErrorIcon-foreground, #f44); }
+    .action-menu-item.danger:hover { background: rgba(255,80,80,0.1); }
+    .action-menu-separator { height: 1px; background: var(--resx-border); margin: 4px 8px; }
   </style>
 </head>
 <body data-singleclickedit="${singleClickEdit}">
@@ -231,12 +278,8 @@ export class TestEditProvider {
     </table>
   </div>
   <script nonce="${nonce}">
-    // ── Stub vscode API ────────────────────────────────────────
-    const vscode = {
-      postMessage: (msg) => window.postMessage({ source: 'testedit', ...msg }, '*'),
-      getState: () => ({}),
-      setState: () => {},
-    };
+    // ── vscode API ──────────────────────────────────────────
+    const vscode = acquireVsCodeApi();
 
     // ── Initial data ───────────────────────────────────────────
     const columns = ${columnsJson};
@@ -602,6 +645,90 @@ export class TestEditProvider {
         }
         return;
       }
+    });
+
+    // ── Action menu ───────────────────────────────────────────
+
+    let actionMenuEl = null;
+    let actionMenuOverlay = null;
+
+    function closeActionMenu() {
+      if (actionMenuOverlay) { actionMenuOverlay.remove(); actionMenuOverlay = null; }
+      if (actionMenuEl) { actionMenuEl.remove(); actionMenuEl = null; }
+    }
+
+    function openActionMenu(cell, clientX, clientY) {
+      closeActionMenu();
+      const rowIdx = parseInt(cell.dataset.row, 10);
+      const row = rows[rowIdx];
+      const menuItems = row.menu;
+      if (!menuItems || menuItems.length === 0) return;
+
+      actionMenuOverlay = document.createElement('div');
+      actionMenuOverlay.className = 'action-menu-overlay';
+      document.body.appendChild(actionMenuOverlay);
+
+      actionMenuEl = document.createElement('div');
+      actionMenuEl.className = 'action-menu';
+
+      let html = '';
+      const menuTitle = row.menuTitle || row.name;
+      html += '<div class="action-menu-label" title="' + escapeHtml(menuTitle) + '">' + escapeHtml(menuTitle) + '</div>';
+
+      menuItems.forEach(item => {
+        if (item.id === 'separator') {
+          html += '<div class="action-menu-separator"></div>';
+        } else {
+          const cls = (item.danger ? ' danger' : '') + (item.disabled ? ' disabled' : '');
+          html += '<button class="action-menu-item' + cls + '" data-action="' + escapeHtml(item.id) + '">' + escapeHtml(item.label) + '</button>';
+        }
+      });
+      actionMenuEl.innerHTML = html;
+      document.body.appendChild(actionMenuEl);
+
+      // Position: ensure it stays within viewport
+      let x = clientX;
+      let y = clientY;
+      const menuRect = actionMenuEl.getBoundingClientRect();
+      if (x + 210 > window.innerWidth) x = window.innerWidth - 220;
+      if (y + menuRect.height > window.innerHeight) y = clientY - menuRect.height;
+      actionMenuEl.style.left = x + 'px';
+      actionMenuEl.style.top = y + 'px';
+
+      // Menu item actions
+      actionMenuEl.querySelectorAll('.action-menu-item[data-action]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const action = btn.getAttribute('data-action');
+          vscode.postMessage({ type: 'actionMenu', actionId: action, rowIdx });
+          closeActionMenu();
+        });
+      });
+
+      // Close on overlay click
+      actionMenuOverlay.addEventListener('click', closeActionMenu);
+
+      // Close on Escape
+      const onKey = e => {
+        if (e.key === 'Escape') { closeActionMenu(); document.removeEventListener('keydown', onKey); }
+      };
+      document.addEventListener('keydown', onKey);
+    }
+
+    // Close menu on any other click outside
+    document.addEventListener('click', e => {
+      if (actionMenuEl && !actionMenuEl.contains(e.target)) {
+        closeActionMenu();
+      }
+    });
+
+    // ── Event: click (action-col) ─────────────────────────────
+
+    tbody.addEventListener('click', (e) => {
+      const td = e.target.closest('td');
+      if (!td || !td.classList.contains('action-col')) return;
+      e.stopPropagation();
+      openActionMenu(td, e.clientX, e.clientY);
     });
 
     // ── Host → Webview messages ────────────────────────────────
