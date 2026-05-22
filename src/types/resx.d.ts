@@ -232,3 +232,31 @@ export interface BulkEditTempFileMetadata {
   /** True when the editor was closed gracefully (not a crash). */
   closed?: boolean;
 }
+
+// ── TableEdit full-state serialization (hot-exit) ──────────────
+
+/** A row in the table-edit grid, as serialized for backup/restore. */
+export interface TableEditRow {
+  name: string;
+  comment: string;
+  values: Record<string | null, string>;
+  menu?: Array<{ id: string; label?: string; danger?: boolean }>;
+  menuTitle?: string;
+}
+
+/** A single undo/redo entry in the table-edit change stack. */
+export type TableEditUndoEntry =
+  | { kind: 'cell'; row: number; col?: number; field?: string; locale?: string; oldValue: string; newValue: string }
+  | { kind: 'addRow'; index: number; rowData: TableEditRow }
+  | { kind: 'deleteRow'; index: number; rowData: TableEditRow }
+  | { kind: 'sort'; newOrder: string[] }
+  | { kind: 'deleteRows'; rowsData: Array<{ index: number; data: TableEditRow }> };
+
+/** Full editing state for backup/restore across hot-exit. */
+export interface FullEditState {
+  rows: TableEditRow[];
+  snapshotRows: TableEditRow[];
+  undoStack: TableEditUndoEntry[];
+  redoStack: TableEditUndoEntry[];
+  dirty: boolean;
+}

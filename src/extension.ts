@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register the test-edit provider (development sandbox)
-  const testProvider = new TestEdit(context);
+  const testProvider = new TestEdit();
   context.subscriptions.push(
     vscode.commands.registerCommand('resx.testEdit', () => testProvider.open())
   );

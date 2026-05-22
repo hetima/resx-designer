@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { getThemeCssVariables } from "./theme-colors";
+import type { FullEditState } from "./types/resx";
 
 // ─── Toolbar button definition ──────────────────────────────────
 
@@ -58,6 +59,8 @@ export class TableEditProvider {
   private _onUndo?: () => void;
   private _onRedo?: () => void;
   private _pendingChangesResolve: ((changes: TableChange[]) => void) | null = null;
+  private _pendingFullStateResolve: ((state: FullEditState) => void) | null = null;
+  private _pendingRestoreAckResolve: (() => void) | null = null;
 
   constructor(options?: TableEditOptions) {
     this._onDirtyChange = options?.onDirtyChange;
@@ -122,6 +125,38 @@ export class TableEditProvider {
     this._panel = undefined;
   }
 
+  /** Request the full editing state from the webview (for hot-exit backup). Resolves when the webview responds. */
+  public getFullState(timeoutMs: number = 2000): Promise<FullEditState> {
+    if (!this._panel) {
+      return Promise.resolve({ rows: [], snapshotRows: [], undoStack: [], redoStack: [], dirty: false });
+    }
+    return new Promise<FullEditState>(resolve => {
+      this._pendingFullStateResolve = resolve;
+      this._panel!.webview.postMessage({ type: 'requestFullState' });
+      setTimeout(() => {
+        if (this._pendingFullStateResolve === resolve) {
+          this._pendingFullStateResolve = null;
+          resolve({ rows: [], snapshotRows: [], undoStack: [], redoStack: [], dirty: false });
+        }
+      }, timeoutMs);
+    });
+  }
+
+  /** Restore full editing state into the webview (for hot-exit recovery). Resolves when the webview acknowledges. */
+  public restoreFullState(state: FullEditState, timeoutMs: number = 2000): Promise<void> {
+    if (!this._panel) return Promise.resolve();
+    return new Promise<void>(resolve => {
+      this._pendingRestoreAckResolve = resolve;
+      this._panel!.webview.postMessage({ type: 'restoreFullState', state });
+      setTimeout(() => {
+        if (this._pendingRestoreAckResolve === resolve) {
+          this._pendingRestoreAckResolve = null;
+          resolve();
+        }
+      }, timeoutMs);
+    });
+  }
+
   // ── Private ────────────────────────────────────────────────────
 
   private _handleMessage(msg: any): void {
@@ -140,6 +175,18 @@ export class TableEditProvider {
         if (this._pendingChangesResolve) {
           this._pendingChangesResolve(msg.changes ?? []);
           this._pendingChangesResolve = null;
+        }
+        break;
+      case 'tableEditFullState':
+        if (this._pendingFullStateResolve) {
+          this._pendingFullStateResolve(msg.state as FullEditState);
+          this._pendingFullStateResolve = null;
+        }
+        break;
+      case 'tableEditRestoreAck':
+        if (this._pendingRestoreAckResolve) {
+          this._pendingRestoreAckResolve();
+          this._pendingRestoreAckResolve = null;
         }
         break;
     }
@@ -1086,6 +1133,31 @@ export class TableEditProvider {
           document.head.appendChild(styleEl);
         }
         styleEl.textContent = ':root { ' + msg.cssVars + ' }';
+      } else if (msg.type === 'requestFullState') {
+        vscode.postMessage({
+          type: 'tableEditFullState',
+          state: { rows: _cloneRows(rows), snapshotRows: _cloneRows(_snapshotRows), undoStack: [..._undoStack], redoStack: [..._redoStack], dirty: _dirty }
+        });
+      } else if (msg.type === 'restoreFullState' && msg.state) {
+        // Restore rows and internal state from host
+        const s = msg.state;
+        _snapshotRows = _cloneRows(s.snapshotRows || []);
+        _undoStack = s.undoStack || [];
+        _redoStack = s.redoStack || [];
+        _dirty = !!s.dirty;
+        // Replace live rows array contents in-place so that existing references work
+        rows.length = 0;
+        for (const r of (s.rows || [])) {
+          rows.push({ name: r.name, comment: r.comment, values: { ...r.values }, menu: r.menu, menuTitle: r.menuTitle });
+        }
+        renderBody();
+        vscode.postMessage({ type: 'tableEditRestoreAck' });
+      } else if (msg.type === 'undo') {
+        _performUndo();
+      } else if (msg.type === 'redo') {
+        _performRedo();
+      } else if (msg.type === 'resetSnapshot') {
+        _takeSnapshot();
       }
     });
 
@@ -1254,10 +1326,7 @@ export class TableEditProvider {
 
     window.addEventListener('message', (e) => {
       const msg = e.data;
-      if (msg.type === 'undo') { _performUndo(); }
-      else if (msg.type === 'redo') { _performRedo(); }
-      else if (msg.type === 'resetSnapshot') { _takeSnapshot(); }
-      else if (msg.type === 'requestChanges') {
+      if (msg.type === 'requestChanges') {
         _notifyHost('tableEditChanges', { changes: _getChanges() });
       }
     });

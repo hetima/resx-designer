@@ -162,11 +162,17 @@ const DUMMY_ROWS = [
   },
 ];
 
-export class TestEdit {
+export class TestEdit extends TableEditProvider {
   public static readonly viewType = "resx.testEdit";
   private panel: vscode.WebviewPanel | undefined;
 
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  constructor() {
+    super({
+      onDirtyChange: (dirty) => {
+        console.log(`[TestEdit] dirty = ${dirty}`);
+      },
+    });
+  }
 
   /** Open (or reveal) the test edit panel. */
   open(): void {
@@ -179,18 +185,13 @@ export class TestEdit {
       TestEdit.viewType,
       "RESX Test Edit",
       vscode.ViewColumn.One,
-      { enableScripts: true },
+      { enableScripts: true, retainContextWhenHidden: true },
     );
 
-    const htmlProvider = new TableEditProvider({
-      onDirtyChange: (dirty) => {
-        console.log(`[TestEdit] dirty = ${dirty}`);
-      },
-    });
-    this.panel.webview.html = htmlProvider.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
-    htmlProvider.attach(this.panel);
+    this.panel.webview.html = this.buildHtml(DUMMY_COLUMNS, DUMMY_ROWS);
+    this.attach(this.panel);
 
-    // Handle webview messages
+    // Handle additional webview messages not covered by TableEditProvider
     const messageSub = this.panel.webview.onDidReceiveMessage((msg: any) => {
       if (msg.type === "actionMenu") {
         const row = DUMMY_ROWS[msg.rowIdx];
@@ -217,7 +218,6 @@ export class TestEdit {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
-      htmlProvider.dispose();
       messageSub.dispose();
       themeSub.dispose();
     });

@@ -37,19 +37,11 @@ TableEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 
 | ステップ | 内容 | 状態 |
 |---------|------|------|
-| 1-B | 列ごとの editing 制御（data-readonly で編集不可セル） | ✅ |
-| 1-D | ナビゲーション拡張（←→ で列間移動、index/action スキップ） | ✅ |
 | 1-E | Action menu（⋮） | ✅ |
 | 1-F | Toolbar（+ New Lang, + New Key, Sort, View Mode 等） | ✅ |
 | 1-G | Dialogs（Add Language, Add Key） | ⬜ |
-| 1-H | Find UI | ✅ |
-| 1-I | コピー機能 | ✅ |
 
 ### 各ステップの詳細
-
-#### 1-B: 列ごとの editing 制御
-- `editable` 属性で列・セル単位に編集不可を指定
-- `singleClickEdit` 設定との兼ね合い: readonly列は singleClickEdit にも反応しない
 
 #### 1-E: Action menu（⋮）
 - `action-col` の ⋮ クリック → ポップアップメニュー表示
@@ -73,31 +65,38 @@ TableEditProvider.ts のインラインHTML/CSS/JSを拡張し、ResxEditor が�
 
 ## フェーズ2: BulkEdit に移植 + 動作確認
 
-TestEdit で実装した機能を BulkEditCustomEditorProvider.ts に移植。
+BulkEdit.tsを作成。TestEditをベースにBulkEditCustomEditorProvider.ts の機能を移植。
+vscodeからの接続をTestEdit.tsに切り替える。BulkEditCustomEditorProvider.tsはまだ残しておく
 
 - BulkEdit の既存動作を壊さないよう注意
 - ファイルI/O（保存・リバート）の動作確認
 - `singleClickEdit` 設定との整合性
 
+### ホットエグジット対応
+- `BulkEdit.ts` は `extends TableEditProvider` + `implements vscode.CustomEditorProvider<BulkEditCustomDocument>` にする
+- `backupCustomDocument()` で `getFullState()` を使い、undo/redo + snapshot を backup file に書き込み
+- `restoreCustomDocument()` を**新規実装**: backup 内容を document に格納し、`resolveCustomEditor()` 後に `restoreFullState()` で webview に復元（旧実装には backup のみで restore 未実装だった）
+- `CustomEditorProvider` なので backup/restore で**完全復元**（undo 履歴含む）
+
 ---
 
 ## フェーズ3: ResxEditor に移行 + 動作確認
+ResxEdit.tsを作成TestEditをベースにResxEditorProvider.ts などの機能を移植。
+vscodeからの接続をResxEdit.tsに切り替える。ResxEditorProvider.tsはまだ残しておく
 
-BulkEdit が「汎用グリッド」になった時点で、ResxEditor の移行を大幅に単純化。
-
-### 3-B: ResxEditorController の調整
-- `handleWebviewMessage()`: メッセージ型は変更不要
-- `handleEditCell()`: 列メタデータに基づく処理はそのまま
+### ホットエグジット対応
+- `ResxEdit.ts` は `extends TableEditProvider` + `implements vscode.CustomTextEditorProvider` にする
+- `CustomTextEditorProvider` なので VS Code が TextDocument の dirty/backup/restore を自動管理
+- webview 再起動後（VS Code 再起動時など）: `resetDirty()` で snapshot を現在の TextDocument 内容に再設定（undo 履歴はクリア）
+- セッション内の undo/redo は `retainContextWhenHidden: true` で保持される
+-_dirtyイベントでホスト側が`applyEdit`を呼び出してTextDocumentをdirtyにする責務はderived側（ResxEdit.ts）が持つ
+- モーダルダイアログへの対応
 
 ---
 
 ## フェーズ4: クリーンアップ + 検証
 
-1. `src/webview/*.js`（8ファイル）全削除
-2. `media/main.js` / `media/main.js.map` 削除
-3. `package.json` から `build:webview`, `watch:webview` スクリプト削除
-4. `localResourceRoots` から不要なパスを整理
-5. 検証: `npm run compile && npm run lint && npm test`
+BulkEdit.tsとResxEdit.tsが完成したらもう使わない旧ファイルを削除
 
 ---
 
