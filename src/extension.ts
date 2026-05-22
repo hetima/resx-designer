@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
+import { BulkEditProvider } from './BulkEdit';
 import { TestEdit } from './TestEdit';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
@@ -26,9 +27,9 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   // Register the bulk-edit custom editor provider
-  const bulkProvider = new BulkEditCustomEditorProvider(context);
+  const bulkProvider = new BulkEditProvider(context);
   context.subscriptions.push(
-    vscode.window.registerCustomEditorProvider(BulkEditCustomEditorProvider.viewType, bulkProvider, {
+    vscode.window.registerCustomEditorProvider(BulkEditProvider.viewType, bulkProvider, {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: false
     })
@@ -336,7 +337,7 @@ function generateDesignerCsContent(
 // ── Bulk-Edit Temp File Cleanup ──────────────────────────────────────
 
 async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
-  const all = await BulkEditCustomEditorProvider.scanAllTempFiles(context);
+  const all = await BulkEditProvider.scanAllTempFiles(context);
   if (all.length === 0) { return; }
 
   const toDelete: vscode.Uri[] = [];
@@ -352,7 +353,7 @@ async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
 
   // Delete closed files silently
   if (toDelete.length > 0) {
-    await BulkEditCustomEditorProvider.deleteOrphanedFiles(context, toDelete);
+    await BulkEditProvider.deleteOrphanedFiles(context, toDelete);
   }
 
   // Auto-restore unclosed files (crash recovery — no prompt needed)
@@ -361,7 +362,7 @@ async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
       await vscode.commands.executeCommand(
         'vscode.openWith',
         uri,
-        BulkEditCustomEditorProvider.viewType,
+        BulkEditProvider.viewType,
         { viewColumn: vscode.ViewColumn.Beside }
       );
     } catch {

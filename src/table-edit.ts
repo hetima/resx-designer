@@ -50,17 +50,17 @@ export interface TableEditOptions {
 
 
 export class TableEditProvider {
-  private _panel?: vscode.WebviewPanel;
-  private _isDirty = false;
-  private _canUndo = false;
-  private _canRedo = false;
-  private _disposables: vscode.Disposable[] = [];
-  private _onDirtyChange?: (isDirty: boolean) => void;
-  private _onUndo?: () => void;
-  private _onRedo?: () => void;
-  private _pendingChangesResolve: ((changes: TableChange[]) => void) | null = null;
-  private _pendingFullStateResolve: ((state: FullEditState) => void) | null = null;
-  private _pendingRestoreAckResolve: (() => void) | null = null;
+  protected _panel?: vscode.WebviewPanel;
+  protected _isDirty = false;
+  protected _canUndo = false;
+  protected _canRedo = false;
+  protected _disposables: vscode.Disposable[] = [];
+  protected _onDirtyChange?: (isDirty: boolean) => void;
+  protected _onUndo?: () => void;
+  protected _onRedo?: () => void;
+  protected _pendingChangesResolve: ((changes: TableChange[]) => void) | null = null;
+  protected _pendingFullStateResolve: ((state: FullEditState) => void) | null = null;
+  protected _pendingRestoreAckResolve: (() => void) | null = null;
 
   constructor(options?: TableEditOptions) {
     this._onDirtyChange = options?.onDirtyChange;
@@ -159,7 +159,7 @@ export class TableEditProvider {
 
   // ── Private ────────────────────────────────────────────────────
 
-  private _handleMessage(msg: any): void {
+  protected _handleMessage(msg: any): void {
     switch (msg.type) {
       case 'tableEditDirty':
         this._isDirty = !!msg.isDirty;
@@ -1344,7 +1344,7 @@ export class TableEditProvider {
 
   // ── Utilities ────────────────────────────────────────────────────
 
-  private getNonce(): string {
+  protected getNonce(): string {
     let text = "";
     const possible =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";

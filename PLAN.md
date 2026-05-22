@@ -74,7 +74,7 @@ vscodeからの接続をTestEdit.tsに切り替える。BulkEditCustomEditorProv
 
 ### ホットエグジット対応
 - `BulkEdit.ts` は `extends TableEditProvider` + `implements vscode.CustomEditorProvider<BulkEditCustomDocument>` にする
-- `backupCustomDocument()` で `getFullState()` を使い、undo/redo + snapshot を backup file に書き込み
+- `backupCustomDocument()` で `getFullState()` を使い、snapshot を backup file に書き込み
 - `restoreCustomDocument()` を**新規実装**: backup 内容を document に格納し、`resolveCustomEditor()` 後に `restoreFullState()` で webview に復元（旧実装には backup のみで restore 未実装だった）
 - `CustomEditorProvider` なので backup/restore で**完全復元**（undo 履歴含む）
 

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
+import { BulkEditProvider } from './BulkEdit';
 
 // ── Public API ──────────────────────────────────────────────────────
 
@@ -17,11 +17,11 @@ export async function openBulkEditPanel(
   name: string,
 ): Promise<void> {
   try {
-    const tmpUri = await BulkEditCustomEditorProvider.createTempFile(context, uri, name);
+    const tmpUri = await BulkEditProvider.createTempFile(context, uri, name);
     await vscode.commands.executeCommand(
       'vscode.openWith',
       tmpUri,
-      BulkEditCustomEditorProvider.viewType,
+      BulkEditProvider.viewType,
       { viewColumn: vscode.ViewColumn.Beside }
     );
   } catch (err) {
