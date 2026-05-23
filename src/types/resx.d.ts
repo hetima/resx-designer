@@ -200,6 +200,25 @@ export interface HostAddKeyResultMessage {
 
 export type HostToWebviewMessage = HostAddLocaleResultMessage | HostAddKeyResultMessage;
 
+// ── Multi Edit Custom Editor ──────────────────────────────────────
+
+/** Metadata stored in a .resxmulti temporary file */
+export interface MultiEditTempFileMetadata {
+  /** URI string of the default .resx file (locale=null) */
+  sourceUri: string;
+  /** True when the editor was closed gracefully (not a crash). */
+  closed?: boolean;
+}
+
+/** Message from multi-edit webview: copy to clipboard */
+export interface MultiEditCopyMessage {
+  type: 'copyToClipboard';
+  text: string;
+}
+
+/** Union of messages from the multi-edit webview to the host */
+export type MultiEditWebviewMessage = MultiEditCopyMessage;
+
 // ── Bulk Edit Custom Editor ──────────────────────────────────────
 
 /** Message from bulk-edit webview: a cell was edited */

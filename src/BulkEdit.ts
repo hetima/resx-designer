@@ -118,9 +118,30 @@ export class BulkEditProvider extends TableEditProvider implements vscode.Custom
 
     // 2 fixed columns: Locale (read-only) + Value (editable)
     const columns = [
-      { kind: 'index' as const, locale: null, label: '#', editable: false, resizable: false, width: 40 },
-      { kind: 'locale' as const, locale: '__localeLabel__', label: 'Locale', editable: false, resizable: true, width: 120 },
-      { kind: 'locale' as const, locale: '__value__', label: 'Value', editable: true, resizable: true, width: 400 },
+      {
+        kind: "index" as const,
+        locale: null,
+        label: "#",
+        editable: false,
+        resizable: false,
+        width: "auto",
+      },
+      {
+        kind: "locale" as const,
+        locale: "__localeLabel__",
+        label: "Locale",
+        editable: false,
+        resizable: true,
+        width: 120,
+      },
+      {
+        kind: "locale" as const,
+        locale: "__value__",
+        label: "Value",
+        editable: true,
+        resizable: true,
+        width: 400,
+      },
     ];
 
     const rows = sortedLocales.map(loc => {

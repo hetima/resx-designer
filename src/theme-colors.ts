@@ -46,6 +46,8 @@ export function getThemeCssVariables(): string {
     `--resx-header-btn-bg:       transparent;`,
     `--resx-header-btn-fg:       var(--resx-fg);`,
     `--resx-header-btn-hover-bg: var(--vscode-list-hoverBackground);`,
+    `--resx-readonly-bg:         var(--vscode-editor-background);`,
+    `--resx-readonly-fg:         var(--vscode-disabledForeground);`,
   ];
 
   // Find-widget variables (derived from widget / input tokens)

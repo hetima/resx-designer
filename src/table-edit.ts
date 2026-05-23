@@ -223,7 +223,6 @@ export class TableEditProvider {
     const fontFamily = config.get<string>("fontFamily", "");
     const fontSize = config.get<number>("fontSize", 0);
     const cellPadding = config.get<number>("cellPadding", 4);
-    const singleClickEdit = config.get<boolean>("singleClickEdit", true);
     const themeVars = getThemeCssVariables();
 
     const fontStr = fontFamily
@@ -312,6 +311,8 @@ export class TableEditProvider {
       user-select: none;
       font-weight: 600;
       text-align: left;
+      margin: 0;
+      padding: 6px 4px;
     }
     /* Column resize handle — th already has position:sticky which establishes containing block */
     .resize-handle {
@@ -336,7 +337,7 @@ export class TableEditProvider {
     td.missing-translation { background-color: var(--resx-missing-bg) !important; }
 
     /* Column classes */
-    .index-col { text-align: right; color: var(--resx-index-fg, var(--resx-fg)); }
+    .index-col { text-align: right; color: var(--resx-index-fg, var(--resx-fg)); width: auto; }
     .action-col { text-align: center; padding: 0 2px; cursor: pointer; vertical-align: middle; }
     .action-col-header { text-align: center; padding: 0 2px; }
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
@@ -344,6 +345,9 @@ export class TableEditProvider {
     .name-col { }
     .comment-col { }
     .value-col { }
+
+    /* Readonly cells */
+    td[data-readonly] { color: var(--resx-readonly-fg); background-color: var(--resx-readonly-bg); }
 
     /* Focus / Editable */
     td.editable { outline: none; cursor: text; }
@@ -384,7 +388,7 @@ export class TableEditProvider {
     td.search-hit { border-left: 3px solid var(--vscode-editor-findMatchHighlightBorder, #ea5c00) !important; }
   </style>
 </head>
-<body data-singleclickedit="${singleClickEdit}">
+<body>
   <div class="search-panel hidden" id="search-panel">
     <input class="search-input" id="search-input" type="text" placeholder="Search..." spellcheck="false">
     <button class="search-btn search-toggle" id="search-case" title="Match Case (Alt+C)">Aa</button>
@@ -411,7 +415,6 @@ export class TableEditProvider {
     const columns = ${columnsJson};
     const rows = ${rowsJson};
     const _notifyCellEdits = ${this._notifyCellEdits};
-    const singleClickEdit = document.body.dataset.singleclickedit === 'true';
     const editing = new WeakSet();
     const thead = document.getElementById('thead');
     const tbody = document.getElementById('tbody');
@@ -649,9 +652,13 @@ export class TableEditProvider {
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
         th.textContent = col.label;
         const w = col.width;
-        th.style.width = w + 'px';
-        th.style.minWidth = w + 'px';
-        th.style.maxWidth = w + 'px';
+        if (w === 'auto') {
+          th.style.width = 'auto';
+        } else {
+          th.style.width = w + 'px';
+          th.style.minWidth = w + 'px';
+          th.style.maxWidth = w + 'px';
+        }
         if (col.resizable) {
           const handle = document.createElement('div');
           handle.className = 'resize-handle';
@@ -672,9 +679,11 @@ export class TableEditProvider {
           td.dataset.row = rowIdx;
           td.dataset.col = colIdx;
           const w = col.width;
-          td.style.width = w + 'px';
-          td.style.minWidth = w + 'px';
-          td.style.maxWidth = w + 'px';
+          if (w !== 'auto') {
+            td.style.width = w + 'px';
+            td.style.minWidth = w + 'px';
+            td.style.maxWidth = w + 'px';
+          }
 
           if (col.kind === 'index') {
             td.className = 'index-col';
@@ -702,7 +711,7 @@ export class TableEditProvider {
               td.title = value;
             }
             if (col.editable) { td.classList.add('editable'); setupEditable(td); }
-            else { td.dataset.readonly = ''; }
+            else { td.dataset.readonly = ''; setupReadonly(td); }
           }
 
           tr.appendChild(td);
@@ -713,8 +722,6 @@ export class TableEditProvider {
 
     function setupEditable(td) {
       // contentEditable is enabled in startEditing().
-      // Keep it false initially regardless of singleClickEdit so that
-      // focus from keyboard navigation alone does not start editing.
       td.contentEditable = 'false';
       td.tabIndex = 0;
     }
@@ -730,17 +737,14 @@ export class TableEditProvider {
     // Keyboard navigation: select and focus only, do not start editing
     function navigateToCell(target) {
       selectCell(target);
-      target.focus();
     }
 
-    // For Tab/Enter after confirm: editing is expected to continue
+    // After confirm (Enter/Tab): move and start editing
     function moveToCell(target) {
       selectCell(target);
-      if (!singleClickEdit && target.classList.contains('editable') && !editing.has(target)) {
+      if (target.classList.contains('editable') && !editing.has(target)) {
         startEditing(target);
       }
-      target.focus();
-      if (editing.has(target)) focusEnd(target);
     }
 
     function startEditing(td) {
@@ -757,6 +761,24 @@ export class TableEditProvider {
       else if (col.kind === 'comment') { field = 'comment'; oldValue = rows[rowIdx].comment; }
       else if (col.kind === 'locale') { field = 'value'; oldValue = rows[rowIdx].values[col.locale] || ''; }
       _pendingEdit = { row: rowIdx, col: colIdx, field, oldValue };
+    }
+
+    function cancelEditing(td) {
+      if (!editing.has(td)) return;
+      // Revert rows data to pre-edit value
+      if (_pendingEdit) {
+        const p = _pendingEdit;
+        if (p.field === 'name') rows[p.row].name = p.oldValue;
+        else if (p.field === 'comment') rows[p.row].comment = p.oldValue;
+        else if (p.field === 'value') rows[p.row].values[columns[p.col].locale] = p.oldValue;
+        td.textContent = p.oldValue;
+        _pendingEdit = null;
+      }
+      td.contentEditable = 'false';
+      editing.delete(td);
+      td.classList.remove('editing');
+      updateMissingState(td);
+      // No _recordChange — this is a cancel
     }
 
     function stopEditing(td) {
@@ -791,59 +813,81 @@ export class TableEditProvider {
       td.classList.toggle('missing-translation', missing);
     }
 
+    // ── View state persistence ─────────────────────────────────
+
+    const _container = document.getElementById('container');
+
+    function _saveViewState() {
+      try {
+        const st = vscode.getState() || {};
+        st.viewState = {
+          scrollX: _container ? _container.scrollLeft : 0,
+          scrollY: _container ? _container.scrollTop : 0,
+          selRow: selectedTd ? parseInt(selectedTd.dataset.row, 10) : undefined,
+          selCol: selectedTd ? parseInt(selectedTd.dataset.col, 10) : undefined,
+        };
+        vscode.setState(st);
+      } catch {}
+    }
+
+    function _restoreViewState() {
+      try {
+        const st = vscode.getState();
+        const vs = st && st.viewState;
+        if (!vs) return;
+        if (_container) {
+          if (typeof vs.scrollX === 'number') _container.scrollLeft = vs.scrollX;
+          if (typeof vs.scrollY === 'number') _container.scrollTop = vs.scrollY;
+        }
+        if (typeof vs.selRow === 'number' && typeof vs.selCol === 'number') {
+          const td = tbody.querySelector('td[data-row="' + vs.selRow + '"][data-col="' + vs.selCol + '"]');
+          if (td) selectCell(td);
+        }
+      } catch {}
+    }
+
+    if (_container) {
+      _container.addEventListener('scroll', () => _saveViewState(), { passive: true });
+    }
+
     // ── Selection ──────────────────────────────────────────────
 
     let selectedTd = null;
 
-    function selectCell(td) {
-      if (selectedTd) selectedTd.classList.remove('selected');
+    function selectCell(td, { skipFocus = false } = {}) {
+      if (selectedTd) {
+        selectedTd.classList.remove('selected');
+        if (!skipFocus) { selectedTd.blur(); }
+      }
       selectedTd = td;
-      if (td) td.classList.add('selected');
+      if (td) {
+        td.classList.add('selected');
+        if (!skipFocus) { td.focus(); }
+      }
+      _saveViewState();
     }
 
-    // ── Event: click ───────────────────────────────────────────
+    // ── Event: focusin ───────────────────────────────────────────
 
-    tbody.addEventListener('click', (e) => {
+    let _suppressEditOnFocus = false;
+
+    tbody.addEventListener('focusin', (e) => {
       const td = e.target.closest('td');
       if (!td) return;
-
       selectCell(td);
-      if (td.classList.contains('editable') && singleClickEdit) {
-        if (!editing.has(td)) {
-          startEditing(td);
-          focusEnd(td);
-        }
-        // keep cursor position on click while editing
+      if (!_suppressEditOnFocus && td.classList.contains('editable') && !editing.has(td)) {
+        startEditing(td);
+        focusEnd(td);
       }
     });
-
-    // ── Event: dblclick (when singleClickEdit is off) ──────────
-
-    if (!singleClickEdit) {
-      tbody.addEventListener('dblclick', (e) => {
-        const td = e.target.closest('td.editable');
-        if (!td) return;
-        startEditing(td);
-        selectCell(td);
-        focusEnd(td);
-      });
-    }
 
     // ── Event: focusout ─────────────────────────────────────────
 
     tbody.addEventListener('focusout', (e) => {
       const td = e.target.closest('td.editable');
       if (!td || !editing.has(td)) return;
-      if (singleClickEdit) {
-        // singleClickEdit: stop editing when focus leaves the cell entirely
-        // (moving to another cell triggers click which will re-enter editing)
-        if (!td.contains(document.activeElement)) {
-          stopEditing(td);
-        }
-      } else {
-        if (!tbody.contains(document.activeElement)) {
-          stopEditing(td);
-        }
+      if (!td.contains(document.activeElement)) {
+        stopEditing(td);
       }
     });
 
@@ -942,6 +986,26 @@ export class TableEditProvider {
       // 編集モードの振る舞い（編集中セルのみ）
       const _activeTd = active?.closest('td');
       const _isEditingActive = _activeTd && editing.has(_activeTd);
+
+      // Escape: close search panel if open, otherwise confirm editing (keep changes) or deselect
+      if (e.key === 'Escape') {
+        if (!searchPanel.classList.contains('hidden')) {
+          closeSearch();
+          return;
+        }
+        const _escTd = _activeTd || selectedTd;
+        if (_escTd && editing.has(_escTd)) {
+          stopEditing(_escTd);
+          // Suppress auto-edit on the focusin that selectCell triggers
+          _suppressEditOnFocus = true;
+          selectCell(_escTd);
+          requestAnimationFrame(() => { _suppressEditOnFocus = false; });
+        } else {
+          selectCell(null);
+        }
+        return;
+      }
+
       if (_isEditingActive && active.contentEditable === 'true') {
         if (window.getSelection()?.toString()) {
           // let browser handle text selection
@@ -997,7 +1061,7 @@ export class TableEditProvider {
           if (nextRow) {
             // normal: move to next row in same column
             const target = nextRow.children[colIdx];
-            if (target) { singleClickEdit ? moveToCell(target) : navigateToCell(target); }
+            if (target) { navigateToCell(target); }
           } else {
             // last row: move to first row of next editable column
             let nextColIdx = colIdx + 1;
@@ -1006,11 +1070,11 @@ export class TableEditProvider {
             const firstRow = tbody.firstElementChild;
             if (firstRow) {
               const target = firstRow.children[destColIdx];
-              if (target) { singleClickEdit ? moveToCell(target) : navigateToCell(target); }
+              if (target) { navigateToCell(target); }
             }
           }
         } else {
-          // 非編集中: 編集開始（editableなら）
+          // not editing: start editing if editable
           if (td.classList.contains('editable')) {
             startEditing(td);
             focusEnd(td);
@@ -1029,43 +1093,12 @@ export class TableEditProvider {
           const target = next.children[colIdx];
           if (target) {
             if (isEditing) stopEditing(td);
-            singleClickEdit ? moveToCell(target) : navigateToCell(target);
+            navigateToCell(target);
           }
         }
         return;
       }
 
-      // Escape: close search panel if open, otherwise cancel edit or deselect
-      if (e.key === 'Escape') {
-        if (!searchPanel.classList.contains('hidden')) {
-          closeSearch();
-          return;
-        }
-        if (isEditing) {
-          // Revert rows data too (input handler has been mutating it)
-          if (_pendingEdit) {
-            const p = _pendingEdit;
-            if (p.field === 'name') rows[p.row].name = p.oldValue;
-            else if (p.field === 'comment') rows[p.row].comment = p.oldValue;
-            else if (p.field === 'value') rows[p.row].values[columns[p.col].locale] = p.oldValue;
-            _pendingEdit = null;
-          }
-          const rowIdx = parseInt(td.dataset.row, 10);
-          const colIdx = parseInt(td.dataset.col, 10);
-          const col = columns[colIdx];
-          let original = '';
-          if (col.kind === 'name') original = rows[rowIdx].name;
-          else if (col.kind === 'comment') original = rows[rowIdx].comment;
-          else if (col.kind === 'locale') original = rows[rowIdx].values[col.locale] || '';
-          td.textContent = original;
-          stopEditing(td);
-          selectCell(td);
-          td.focus();
-        } else {
-          selectCell(null);
-        }
-        return;
-      }
     });
 
     // ── Action menu ───────────────────────────────────────────
@@ -1143,6 +1176,19 @@ export class TableEditProvider {
       }
     });
 
+    // ── Event: click (tbody) ─────────────────────────────────
+
+    tbody.addEventListener('click', (e) => {
+      const td = e.target.closest('td');
+      if (!td) return;
+      if (td.classList.contains('action-col')) return;
+      // If already focused+selected but not editing (e.g. after Esc), start editing
+      if (td === selectedTd && td.classList.contains('editable') && !editing.has(td)) {
+        startEditing(td);
+        focusEnd(td);
+      }
+    });
+
     // ── Event: click (action-col) ─────────────────────────────
 
     tbody.addEventListener('click', (e) => {
@@ -1189,6 +1235,8 @@ export class TableEditProvider {
         _performRedo();
       } else if (msg.type === 'resetSnapshot') {
         _takeSnapshot();
+      } else if (msg.type === 'restoreViewState') {
+        requestAnimationFrame(() => _restoreViewState());
       }
     });
 
@@ -1302,7 +1350,8 @@ export class TableEditProvider {
       searchCursor = (idx + searchHits.length) % searchHits.length;
       const td = searchHits[searchCursor];
       searchCount.textContent = (searchCursor + 1) + ' of ' + searchHits.length;
-      selectCell(td);
+      // Select without focusing the cell (keeps focus in search input)
+      selectCell(td, { skipFocus: true });
       td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     }
 
@@ -1366,6 +1415,7 @@ export class TableEditProvider {
 
     renderHeader();
     renderBody();
+    _restoreViewState();
     setupToolbar();
     _takeSnapshot();
     ${additionalScript}

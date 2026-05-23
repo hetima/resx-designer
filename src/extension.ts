@@ -4,8 +4,10 @@ import { ResxEditProvider } from './ResxEdit';
 import { ResxEditorProvider } from './ResxEditorProvider';
 import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
 import { BulkEditProvider } from './BulkEdit';
+import { MultiEditCustomEditorProvider } from './MultiEdit';
 import { TestEdit } from './TestEdit';
 import type { BulkEditTempFileMetadata } from './types/resx';
+import type { MultiEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
 import { isDefaultResx } from './resx-config';
@@ -36,14 +38,24 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // Register the multi-edit custom editor provider
+  const multiProvider = new MultiEditCustomEditorProvider(context);
+  context.subscriptions.push(
+    vscode.window.registerCustomEditorProvider(MultiEditCustomEditorProvider.viewType, multiProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+      supportsMultipleEditorsPerDocument: false
+    })
+  );
+
   // Register the test-edit provider (development sandbox)
   const testProvider = new TestEdit();
   context.subscriptions.push(
     vscode.commands.registerCommand('resx.testEdit', () => testProvider.open())
   );
 
-  // Clean up bulk-edit temp files: delete closed ones, auto-restore unclosed (crash recovery)
-  cleanTempFiles(context);
+  // Clean up temp files: delete closed ones, auto-restore unclosed (crash recovery)
+  cleanBulkEditTempFiles(context);
+  cleanMultiEditTempFiles(context);
 
   // Auto-refresh all open RESX editors when relevant settings change
   const refreshKeys = [
@@ -336,7 +348,7 @@ function generateDesignerCsContent(
 
 // ── Bulk-Edit Temp File Cleanup ──────────────────────────────────────
 
-async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
+async function cleanBulkEditTempFiles(context: vscode.ExtensionContext): Promise<void> {
   const all = await BulkEditProvider.scanAllTempFiles(context);
   if (all.length === 0) { return; }
 
@@ -362,8 +374,41 @@ async function cleanTempFiles(context: vscode.ExtensionContext): Promise<void> {
       await vscode.commands.executeCommand(
         'vscode.openWith',
         uri,
-        BulkEditProvider.viewType,
-        { viewColumn: vscode.ViewColumn.Beside }
+        BulkEditProvider.viewType
+      );
+    } catch {
+      // could not restore — leave for next startup
+    }
+  }
+}
+
+// ── Multi-Edit Temp File Cleanup ──────────────────────────────────────
+
+async function cleanMultiEditTempFiles(context: vscode.ExtensionContext): Promise<void> {
+  const all = await MultiEditCustomEditorProvider.scanAllTempFiles(context);
+  if (all.length === 0) { return; }
+
+  const toDelete: vscode.Uri[] = [];
+  const toRestore: Array<{ uri: vscode.Uri; metadata: MultiEditTempFileMetadata }> = [];
+
+  for (const item of all) {
+    if (item.metadata.closed) {
+      toDelete.push(item.uri);
+    } else {
+      toRestore.push(item);
+    }
+  }
+
+  if (toDelete.length > 0) {
+    await MultiEditCustomEditorProvider.deleteOrphanedFiles(context, toDelete);
+  }
+
+  for (const { uri } of toRestore) {
+    try {
+      await vscode.commands.executeCommand(
+        'vscode.openWith',
+        uri,
+        MultiEditCustomEditorProvider.viewType
       );
     } catch {
       // could not restore — leave for next startup

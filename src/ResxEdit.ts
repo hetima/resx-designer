@@ -9,6 +9,7 @@ import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, getSortedLocales, parseResxFilename } from './resx-locale-finder';
 import { openBulkEditPanel } from './bulk-edit-panel';
+import { openMultiEditPanel } from './multi-edit-panel';
 import { getThemeCssVariables } from './theme-colors';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -26,7 +27,6 @@ export class ResxEditController extends TableEditProvider {
   private lastWrittenUris = new Set<string>();
   private fileWatchers: vscode.FileSystemWatcher[] = [];
   private highlightMissing = true;
-  private viewMode: 'single' | 'multi' = 'single';
   private currentLocale: string | null = null;
   private _contextCell: { row: number; col: number; isHeader: boolean; selectedRows: number[]; name: string } | null = null;
   private readonly context: vscode.ExtensionContext;
@@ -63,8 +63,7 @@ export class ResxEditController extends TableEditProvider {
 
     this.highlightMissing = config.get<boolean>('highlightMissingTranslations', true);
 
-    // Always start in single mode (multi is a session-only toggle).
-    this.viewMode = 'single';
+    // Always start in single mode (multi is now a separate editor tab).
 
     webviewPanel.webview.options = {
       enableScripts: true,
@@ -231,26 +230,26 @@ export class ResxEditController extends TableEditProvider {
     const visibleColumns = this.getVisibleColumns();
 
     const isDefaultFile = this.currentLocale === null;
-    const lockNameAndDefault = this.viewMode === "single" && !isDefaultFile;
+    const lockNameAndDefault = !isDefaultFile;
 
     const columns = visibleColumns.map((vc) => {
       const col = { ...vc };
       if (col.kind === "index") {
-        return { ...col, editable: false, resizable: false, width: 40 };
+        return { ...col, editable: false, resizable: false, width: "auto" };
       } else if (col.kind === "action") {
         return { ...col, editable: false, resizable: false, width: 24 };
       } else if (col.kind === "name") {
         return {
           ...col,
-          editable: !lockNameAndDefault,
+          editable: true,
           resizable: true,
-          width: 120,
+          width: 180,
         };
       } else if (col.kind === "comment") {
-        return { ...col, editable: true, resizable: true, width: 120 };
+        return { ...col, editable: true, resizable: true, width: 180 };
       } else if (col.kind === "locale") {
         const locked = lockNameAndDefault && col.locale === null;
-        return { ...col, editable: !locked, resizable: true, width: 160 };
+        return { ...col, editable: !locked, resizable: true, width: 220 };
       }
       return col;
     });
@@ -278,10 +277,6 @@ export class ResxEditController extends TableEditProvider {
   private getVisibleColumns(): Array<ResxGridColumn & { physicalIndex: number }> {
     const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
 
-    if (this.viewMode === 'multi') {
-      return this.columns.map((c, i) => ({ ...c, physicalIndex: i }));
-    }
-
     // Single mode: always-visible columns, then default + current locale
     const visible: Array<ResxGridColumn & { physicalIndex: number }> = [];
     for (let i = 0; i < this.columns.length; i++) {
@@ -306,7 +301,6 @@ export class ResxEditController extends TableEditProvider {
 
     const { columns, rows } = this.buildTableData();
 
-    const viewModeLabel = this.viewMode === 'single' ? 'Multi View' : 'Single View';
     const toolbarButtons: Array<
       | ToolbarButton
       | { id: string; icon: string; title?: string; align?: "left" | "right" }
@@ -331,11 +325,8 @@ export class ResxEditController extends TableEditProvider {
       },
       {
         id: "viewMode",
-        icon: viewModeLabel,
-        title:
-          this.viewMode === "single"
-            ? "Show all locale columns"
-            : "Show single file columns",
+        icon: "Multi Edit",
+        title: "Show all locale columns",
         align: "right",
       },
       {
@@ -346,7 +337,9 @@ export class ResxEditController extends TableEditProvider {
       },
     ];
 
+    const sourceName = vscode.workspace.asRelativePath(this.document.uri, false);
     this._webviewPanel.webview.html = this.buildHtml(columns, rows, {
+      title: sourceName,
       additionalScript: this.getDialogScript(),
     }, toolbarButtons as ToolbarButton[]);
   }
@@ -549,7 +542,7 @@ export class ResxEditController extends TableEditProvider {
         this.handleSortRows(msg.ascending ?? true, true);
         break;
       case 'setViewMode':
-        await this.handleSetViewMode(msg.mode === 'toggle' ? (this.viewMode === 'single' ? 'multi' : 'single') : msg.mode);
+        await this.handleSetViewMode(msg.mode === 'toggle' ? 'multi' : msg.mode);
         break;
       case 'openAsText':
         if (this._webviewPanel) {
@@ -621,11 +614,7 @@ export class ResxEditController extends TableEditProvider {
         await this.renameKeyAcrossAllLocales(oldName, msg.newValue);
         row.name = msg.newValue;
       } else if (colDef.kind === 'comment') {
-        if (this.viewMode === 'multi') {
-          await this.updateCommentSingleLocale(row.name, msg.newValue, null);
-        } else {
-          await this.updateCommentSingleLocale(row.name, msg.newValue, this.currentLocale);
-        }
+        await this.updateCommentSingleLocale(row.name, msg.newValue, this.currentLocale);
         row.comment = msg.newValue;
       } else if (colDef.kind === 'locale') {
         const locale = colDef.locale;
@@ -679,10 +668,10 @@ export class ResxEditController extends TableEditProvider {
   }
 
   private async handleSetViewMode(mode: 'single' | 'multi'): Promise<void> {
-    if (mode === this.viewMode) { return; }
-    try { await this.document.save(); } catch {}
-    this.viewMode = mode;
-    this.rebuildWebviewContent();
+    if (mode === 'multi') {
+      // Open the MultiEdit virtual editor in a separate tab
+      await openMultiEditPanel(this.context, this.document.uri);
+    }
   }
 
   private async handleAddLocale(locale: string, fillDefaults: boolean): Promise<void> {

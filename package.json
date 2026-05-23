@@ -147,6 +147,7 @@
       {
         "viewType": "resx.editor",
         "displayName": "RESX",
+        "priority": "default",
         "selector": [
           {
             "filenamePattern": "*.resx"
@@ -161,8 +162,22 @@
             "filenamePattern": "*.resxbulk"
           }
         ]
+      },
+      {
+        "viewType": "resx.multiEdit",
+        "displayName": "RESX Multi Edit",
+        "selector": [
+          {
+            "filenamePattern": "*.resxmulti"
+          }
+        ]
       }
     ],
+    "configurationDefaults": {
+      "workbench.diffEditorAssociations": {
+        "*.resx": "default"
+      }
+    },
     "menus": {
       "explorer/context": [
         {
