@@ -22,7 +22,7 @@ export class ResxEditController extends TableEditProvider {
   private localeSet: ResxLocaleSet | null | undefined;
   private columns: ResxGridColumn[] = [];
   private gridRows: ResxGridRow[] = [];
-  private isUpdating = false;
+  private isUpdating = 0;  // counter: >0 means a write is in progress
   private lastWrittenUris = new Set<string>();
   private fileWatchers: vscode.FileSystemWatcher[] = [];
   private highlightMissing = true;
@@ -97,15 +97,24 @@ export class ResxEditController extends TableEditProvider {
     const changeSub = vscode.workspace.onDidChangeTextDocument(ev => {
       if (
         ev.document.uri.toString() === document.uri.toString() &&
-        !this.isUpdating &&
+        this.isUpdating === 0 &&
         !this.lastWrittenUris.has(ev.document.uri.toString())
       ) {
         setTimeout(() => this.reloadAndRefresh(), 300);
       }
     });
 
+    // Guard against save-triggered reloads (Ctrl+S after our own applyEdit)
+    const saveSub = vscode.workspace.onDidSaveTextDocument(savedDoc => {
+      if (savedDoc.uri.toString() === document.uri.toString()) {
+        this.lastWrittenUris.add(savedDoc.uri.toString());
+        setTimeout(() => { this.lastWrittenUris.delete(savedDoc.uri.toString()); }, 2000);
+      }
+    });
+
     webviewPanel.onDidDispose(() => {
       changeSub.dispose();
+      saveSub.dispose();
       this.colorThemeSub?.dispose();
       for (const w of this.fileWatchers) { w.dispose(); }
       this.fileWatchers = [];
@@ -605,7 +614,7 @@ export class ResxEditController extends TableEditProvider {
     const colDef = visibleColumns[msg.col];
     if (!colDef) { return; }
 
-    this.isUpdating = true;
+    this.isUpdating++;
     try {
       if (colDef.kind === 'name') {
         const oldName = row.name;
@@ -633,7 +642,7 @@ export class ResxEditController extends TableEditProvider {
         }
       }
     } finally {
-      this.isUpdating = false;
+      this.isUpdating--;
     }
   }
 
@@ -642,7 +651,7 @@ export class ResxEditController extends TableEditProvider {
   public async handleDeleteKey(name: string, allFiles: boolean): Promise<void> {
     if (!this.localeSet) { return; }
 
-    this.isUpdating = true;
+    this.isUpdating++;
     try {
       if (allFiles) {
         try { await this.document.save(); } catch {}
@@ -665,7 +674,7 @@ export class ResxEditController extends TableEditProvider {
       this.buildGrid();
       this.rebuildWebviewContent();
     } finally {
-      this.isUpdating = false;
+      this.isUpdating--;
     }
   }
 
@@ -728,7 +737,7 @@ export class ResxEditController extends TableEditProvider {
       return;
     }
 
-    this.isUpdating = true;
+    this.isUpdating++;
     try {
       const afterName = (insertAfterIndex != null && insertAfterIndex >= 0 && insertAfterIndex < this.gridRows.length)
         ? this.gridRows[insertAfterIndex].name
@@ -769,7 +778,7 @@ export class ResxEditController extends TableEditProvider {
 
       this.rebuildWebviewContent();
     } finally {
-      this.isUpdating = false;
+      this.isUpdating--;
     }
   }
 
@@ -808,7 +817,7 @@ export class ResxEditController extends TableEditProvider {
         this.document.positionAt(0),
         this.document.positionAt(this.document.getText().length)
       );
-      this.isUpdating = true;
+      this.isUpdating++;
       try {
         this.lastWrittenUris.add(uri.toString());
         const wsEdit = new vscode.WorkspaceEdit();
@@ -817,14 +826,14 @@ export class ResxEditController extends TableEditProvider {
         if (!success) {
           await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
         }
-        setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
+        setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 2000);
       } finally {
-        this.isUpdating = false;
+        this.isUpdating--;
       }
     } else {
       this.lastWrittenUris.add(uri.toString());
       await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(xml));
-      setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 500);
+      setTimeout(() => { this.lastWrittenUris.delete(uri.toString()); }, 2000);
     }
   }
 
@@ -842,6 +851,7 @@ export class ResxEditController extends TableEditProvider {
   }
 
   private async reloadAndRefresh(): Promise<void> {
+    if (this.isUpdating > 0) { return; }
     await this.loadLocaleSet();
     this.rebuildWebviewContent();
   }
@@ -940,7 +950,7 @@ export class ResxEditController extends TableEditProvider {
     });
 
     if (this.localeSet) {
-      this.isUpdating = true;
+      this.isUpdating++;
       try {
         const sortedNames = this.gridRows.map(r => r.name);
         if (writeImmediately) {
@@ -962,7 +972,7 @@ export class ResxEditController extends TableEditProvider {
           }
         }
       } finally {
-        this.isUpdating = false;
+        this.isUpdating--;
       }
     }
 

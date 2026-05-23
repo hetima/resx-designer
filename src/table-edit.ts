@@ -307,13 +307,24 @@ export class TableEditProvider {
     th {
       position: sticky;
       top: 0;
-      background-color: var(--resx-body);
       z-index: 10;
+      background-color: var(--resx-body);
       user-select: none;
       font-weight: 600;
       text-align: left;
     }
-    td { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* Column resize handle — th already has position:sticky which establishes containing block */
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 1;
+    }
+    .resize-handle:hover, .resize-handle.dragging { background: var(--vscode-focusBorder); opacity: 0.6; }
 
     /* Selected cell */
     td.selected, th.selected { background-color: var(--resx-selected-bg) !important; }
@@ -342,20 +353,6 @@ export class TableEditProvider {
 
     /* VS Code theme selection colors */
     td::selection, td *::selection { background: var(--resx-selection-bg); color: var(--resx-selection-fg); }
-
-    /* Column resize handle */
-    th { position: relative; }
-    .resize-handle {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 6px;
-      height: 100%;
-      cursor: col-resize;
-      user-select: none;
-      z-index: 1;
-    }
-    .resize-handle:hover, .resize-handle.dragging { background: var(--vscode-focusBorder); opacity: 0.6; }
 
     /* Action menu */
     .action-menu-overlay { position: fixed; inset: 0; z-index: 9998; }
@@ -837,8 +834,13 @@ export class TableEditProvider {
     tbody.addEventListener('focusout', (e) => {
       const td = e.target.closest('td.editable');
       if (!td || !editing.has(td)) return;
-      // Keep editing state when singleClickEdit; restore otherwise
-      if (!singleClickEdit) {
+      if (singleClickEdit) {
+        // singleClickEdit: stop editing when focus leaves the cell entirely
+        // (moving to another cell triggers click which will re-enter editing)
+        if (!td.contains(document.activeElement)) {
+          stopEditing(td);
+        }
+      } else {
         if (!tbody.contains(document.activeElement)) {
           stopEditing(td);
         }
