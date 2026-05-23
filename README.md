@@ -17,7 +17,7 @@ Designer.cs is synchronized automatically whenever you add or remove keys in `St
 
 ### Batch Edit Identical Names
 
-Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Click the vertical ellipsis (kebab menu) at the far left of the row and select "Bulk Edit".
+Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Click the ellipsis at the far left of the row and select "Bulk Edit".
 
 ### All Keys across All Languages
 
@@ -71,7 +71,6 @@ All settings are scoped to the `resx.*` prefix.
 | Setting | Type | Default | Description |
 |---|---|---|---|
 | `resx.enabled` | `boolean` | `true` | Enable/disable the custom editor |
-| `resx.singleClickEdit` | `boolean` | `true` | Start editing on single click |
 | `resx.showSerialIndex` | `boolean` | `false` | Show index number column |
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.fontFamily` | `string` | *(inherit)* | Override font family |
