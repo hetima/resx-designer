@@ -2,7 +2,6 @@ import * as path from 'path';
 import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
 import { ResxEditProvider } from './ResxEdit';
-import { ResxEditorProvider } from './ResxEditorProvider';
 import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';

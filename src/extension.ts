@@ -1,11 +1,8 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ResxEditProvider } from './ResxEdit';
-import { ResxEditorProvider } from './ResxEditorProvider';
-import { BulkEditCustomEditorProvider } from './BulkEditCustomEditorProvider';
 import { BulkEditProvider } from './BulkEdit';
 import { MultiEditCustomEditorProvider } from './MultiEdit';
-import { TestEdit } from './TestEdit';
 import type { BulkEditTempFileMetadata } from './types/resx';
 import type { MultiEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
@@ -45,12 +42,6 @@ export function activate(context: vscode.ExtensionContext) {
       webviewOptions: { retainContextWhenHidden: true },
       supportsMultipleEditorsPerDocument: false
     })
-  );
-
-  // Register the test-edit provider (development sandbox)
-  const testProvider = new TestEdit();
-  context.subscriptions.push(
-    vscode.commands.registerCommand('resx.testEdit', () => testProvider.open())
   );
 
   // Clean up temp files: delete closed ones, auto-restore unclosed (crash recovery)
