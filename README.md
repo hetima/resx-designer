@@ -2,9 +2,7 @@
 
 Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in a unified grid view. 
 
-![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot02.jpg)
-
-![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot03.jpg)
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/assets/screenshot04.gif)
 
 
 ## Features
