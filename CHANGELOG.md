@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1] - 2026-05-24
+- Added checkbox to Multi Edit for bulk deletion
+- Fixed cell width restoration issue on reload
+- Fixed default file saving issue in Multi Edit
 
 ## [0.2.0] - 2026-05-23
 ### Custom Editor Improvements
