@@ -205,6 +205,14 @@ class MultiEditController extends TableEditProvider {
         width: 24,
       },
       {
+        kind: "checkbox" as const,
+        locale: null,
+        label: "",
+        editable: false,
+        resizable: false,
+        width: 30,
+      },
+      {
         kind: "name" as const,
         locale: null,
         label: "Name",
@@ -309,6 +317,13 @@ class MultiEditController extends TableEditProvider {
         align: 'left',
         onClick: () => {},
       },
+      {
+        id: 'deleteChecked',
+        icon: '✕ Delete Checked',
+        title: 'Delete all checked rows',
+        align: 'left',
+        onClick: () => {},
+      },
     ];
 
     this.webviewPanel.webview.html = this.buildHtml(
@@ -344,6 +359,9 @@ class MultiEditController extends TableEditProvider {
     }
     if (msg.type === 'actionMenu') {
       this.handleActionMenu(msg.actionId, msg.rowIdx);
+    }
+    if (msg.type === 'deleteChecked') {
+      this.handleDeleteChecked(msg.rowNames);
     }
   }
 
@@ -408,6 +426,27 @@ class MultiEditController extends TableEditProvider {
         this.webviewPanel?.webview.postMessage({ type: '_openInsertKeyDialog', rowIdx });
         break;
     }
+  }
+
+  private async handleDeleteChecked(rowNames: string[]): Promise<void> {
+    if (!rowNames || rowNames.length === 0) { return; }
+
+    const count = rowNames.length;
+    const confirm = await vscode.window.showWarningMessage(
+      `Delete ${count} checked key${count > 1 ? 's' : ''}?\n\nUnsaved edits will be saved first.`,
+      { modal: true },
+      'Delete'
+    );
+    if (confirm !== 'Delete') { return; }
+
+    // Save current edits first (prevent edit loss)
+    await this.save();
+
+    // Mark checked rows for deletion, then save again
+    for (const name of rowNames) {
+      this.pendingDeletes.add(name);
+    }
+    await this.save();
   }
 
   // ── Add Locale ───────────────────────────────────────────────
@@ -642,8 +681,19 @@ class MultiEditController extends TableEditProvider {
       switch (id) {
         case 'addLang': _openAddLangDialog(); break;
         case 'addKey': _openAddKeyDialog(); break;
+        case 'deleteChecked':
+          const names = rows.filter(r => checkedRows.has(r.name)).map(r => r.name);
+          if (names.length > 0) _notifyHost('deleteChecked', { rowNames: names });
+          break;
       }
     }
+
+    // Expose checked count updater to base script
+    window._setCheckedCount = (count) => {
+      const btn = document.querySelector('.toolbar-btn[data-action="deleteChecked"]');
+      if (btn) btn.disabled = count === 0;
+    };
+    window._setCheckedCount(0);
 
     // Override handleToolbarAction from base
     document.getElementById('toolbar')?.addEventListener('click', (e) => {

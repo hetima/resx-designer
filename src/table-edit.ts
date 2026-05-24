@@ -342,6 +342,10 @@ export class TableEditProvider {
     .action-col-header { text-align: center; padding: 0 2px; }
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
     .action-col:hover .action-icon { opacity: 1; }
+    .checkbox-col { text-align: center; padding: 0 2px; vertical-align: middle; }
+    .checkbox-col-header { text-align: center; padding: 0 2px; }
+    .checkbox-col input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
+    .checkbox-col-header input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
     .name-col { }
     .comment-col { }
     .value-col { }
@@ -416,8 +420,16 @@ export class TableEditProvider {
     const rows = ${rowsJson};
     const _notifyCellEdits = ${this._notifyCellEdits};
     const editing = new WeakSet();
+    const checkedRows = new Set();
     const thead = document.getElementById('thead');
     const tbody = document.getElementById('tbody');
+
+    function _updateCheckedState() {
+      const count = checkedRows.size;
+      const hcb = document.getElementById('_headerCheckbox');
+      if (hcb) hcb.checked = count > 0 && count === rows.length;
+      window._setCheckedCount && window._setCheckedCount(count);
+    }
 
     // ── Table state (dirty, undo/redo) ─────────────────────────
     let _undoStack = [];
@@ -647,10 +659,26 @@ export class TableEditProvider {
         th.dataset.col = idx;
         if (col.kind === 'index') th.className = 'index-col';
         else if (col.kind === 'action') th.className = 'action-col-header';
+        else if (col.kind === 'checkbox') th.className = 'checkbox-col-header';
         else if (col.kind === 'name') th.className = 'name-col';
         else if (col.kind === 'comment') th.className = 'comment-col';
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
-        th.textContent = col.label;
+        if (col.kind === 'checkbox') {
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.id = '_headerCheckbox';
+          cb.title = 'Select / Deselect All';
+          cb.addEventListener('change', () => {
+            const on = cb.checked;
+            checkedRows.clear();
+            if (on) rows.forEach(r => checkedRows.add(r.name));
+            tbody.querySelectorAll('.checkbox-col input[type="checkbox"]').forEach(el => el.checked = on);
+            _updateCheckedState();
+          });
+          th.appendChild(cb);
+        } else {
+          th.textContent = col.label;
+        }
         const w = col.width;
         if (w === 'auto') {
           th.style.width = 'auto';
@@ -692,6 +720,17 @@ export class TableEditProvider {
             td.className = 'action-col';
             td.dataset.name = row.name;
             td.innerHTML = '<span class="action-icon">⋯</span>';
+          } else if (col.kind === 'checkbox') {
+            td.className = 'checkbox-col';
+            td.dataset.name = row.name;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = checkedRows.has(row.name);
+            cb.addEventListener('change', () => {
+              if (cb.checked) checkedRows.add(row.name); else checkedRows.delete(row.name);
+              _updateCheckedState();
+            });
+            td.appendChild(cb);
           } else if (col.kind === 'name') {
             td.className = 'name-col';
             td.textContent = row.name;
@@ -729,7 +768,7 @@ export class TableEditProvider {
     function setupReadonly(td) {
       // Allow focus on read-only cells (except index/action)
       const col = columns[parseInt(td.dataset.col, 10)];
-      if (col.kind !== 'index' && col.kind !== 'action') {
+      if (col.kind !== 'index' && col.kind !== 'action' && col.kind !== 'checkbox') {
         td.tabIndex = 0;
       }
     }
@@ -1060,7 +1099,7 @@ export class TableEditProvider {
         let nextColIdx = colIdx + step;
         while (nextColIdx >= 0 && nextColIdx < columns.length) {
           const nextCol = columns[nextColIdx];
-          if (nextCol.kind !== 'index' && nextCol.kind !== 'action') break;
+          if (nextCol.kind !== 'index' && nextCol.kind !== 'action' && nextCol.kind !== 'checkbox') break;
           nextColIdx += step;
         }
         if (nextColIdx >= 0 && nextColIdx < columns.length) {
