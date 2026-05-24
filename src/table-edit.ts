@@ -345,7 +345,7 @@ export class TableEditProvider {
     .checkbox-col { text-align: center; padding: 0 2px; vertical-align: middle; }
     .checkbox-col-header { text-align: center; padding: 0 2px; vertical-align: middle;}
     .checkbox-col input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
-    .checkbox-col-header input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
+
     .name-col { }
     .comment-col { }
     .value-col { }
@@ -426,8 +426,6 @@ export class TableEditProvider {
 
     function _updateCheckedState() {
       const count = checkedRows.size;
-      const hcb = document.getElementById('_headerCheckbox');
-      if (hcb) hcb.checked = count > 0 && count === rows.length;
       window._setCheckedCount && window._setCheckedCount(count);
     }
 
@@ -664,18 +662,7 @@ export class TableEditProvider {
         else if (col.kind === 'comment') th.className = 'comment-col';
         else if (col.kind === 'locale') th.className = 'value-col locale-header';
         if (col.kind === 'checkbox') {
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.id = '_headerCheckbox';
-          cb.title = 'Select / Deselect All';
-          cb.addEventListener('change', () => {
-            const on = cb.checked;
-            checkedRows.clear();
-            if (on) rows.forEach(r => checkedRows.add(r.name));
-            tbody.querySelectorAll('.checkbox-col input[type="checkbox"]').forEach(el => el.checked = on);
-            _updateCheckedState();
-          });
-          th.appendChild(cb);
+          th.textContent = ' ';
         } else {
           th.textContent = col.label;
         }
