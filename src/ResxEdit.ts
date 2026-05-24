@@ -216,7 +216,7 @@ export class ResxEditController extends TableEditProvider {
         if (entry) {
           row.values.set(loc, entry.value);
           row.definedIn.add(loc);
-          if (entry.comment && (!row.comment || loc === null)) {
+          if (loc === null && entry.comment) {
             row.comment = entry.comment;
           }
         }
@@ -246,7 +246,12 @@ export class ResxEditController extends TableEditProvider {
           width: 180,
         };
       } else if (col.kind === "comment") {
-        return { ...col, editable: true, resizable: true, width: 180 };
+        return {
+          ...col,
+          editable: isDefaultFile,
+          resizable: true,
+          width: 180,
+        };
       } else if (col.kind === "locale") {
         const locked = lockNameAndDefault && col.locale === null;
         return { ...col, editable: !locked, resizable: true, width: 220 };
