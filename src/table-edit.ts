@@ -1109,17 +1109,8 @@ export class TableEditProvider {
             // normal: move to next row in same column
             const target = nextRow.children[colIdx];
             if (target) { navigateToCell(target); }
-          } else {
-            // last row: move to first row of next editable column
-            let nextColIdx = colIdx + 1;
-            while (nextColIdx < columns.length && !columns[nextColIdx].editable) { nextColIdx++; }
-            const destColIdx = nextColIdx < columns.length ? nextColIdx : colIdx;
-            const firstRow = tbody.firstElementChild;
-            if (firstRow) {
-              const target = firstRow.children[destColIdx];
-              if (target) { navigateToCell(target); }
-            }
           }
+          // last row: stay here (same as Tab behavior)
         } else {
           // not editing: start editing if editable
           if (td.classList.contains('editable')) {
