@@ -314,7 +314,7 @@ class MultiEditController extends TableEditProvider {
     this.webviewPanel.webview.html = this.buildHtml(
       columns,
       rows,
-      { title: sourceName, additionalScript: this.getDialogScript() },
+      { title: '[Multi] ' + sourceName, additionalScript: this.getDialogScript() },
       toolbarButtons
     );
 
@@ -347,7 +347,7 @@ class MultiEditController extends TableEditProvider {
     }
   }
 
-  private handleAddKey(name: string, insertAfterIndex?: number): void {
+  private async handleAddKey(name: string, insertAfterIndex?: number): Promise<void> {
     if (!name) { return; }
     // Check duplicates in gridRows + pendingAdditions
     const existingNames = new Set([
@@ -369,15 +369,7 @@ class MultiEditController extends TableEditProvider {
     }
 
     this.pendingAdditions.push({ name, afterKey });
-    this.rebuildWebview();
-    // Notify the webview about the result
-    this.webviewPanel.webview.postMessage({
-      type: 'addKeyResult',
-      success: true,
-      name,
-      message: `Key "${name}" added.`,
-      rowIndex: -1,
-    });
+    await this.save();
   }
 
   private async handleDeleteKey(name: string): Promise<void> {
@@ -392,10 +384,11 @@ class MultiEditController extends TableEditProvider {
     if (addIdx >= 0) {
       this.pendingAdditions.splice(addIdx, 1);
       this.pendingEdits.delete(name);
+      this.rebuildWebview();
     } else {
       this.pendingDeletes.add(name);
+      await this.save();
     }
-    this.rebuildWebview();
   }
 
   private async handleActionMenu(actionId: string, rowIdx: number): Promise<void> {

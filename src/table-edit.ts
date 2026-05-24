@@ -820,11 +820,16 @@ export class TableEditProvider {
     function _saveViewState() {
       try {
         const st = vscode.getState() || {};
+        const colWidths = [];
+        thead.querySelectorAll('th').forEach(th => {
+          colWidths.push(th.style.width && th.style.width !== 'auto' ? parseInt(th.style.width, 10) : undefined);
+        });
         st.viewState = {
           scrollX: _container ? _container.scrollLeft : 0,
           scrollY: _container ? _container.scrollTop : 0,
           selRow: selectedTd ? parseInt(selectedTd.dataset.row, 10) : undefined,
           selCol: selectedTd ? parseInt(selectedTd.dataset.col, 10) : undefined,
+          colWidths: colWidths.some(w => w !== undefined) ? colWidths : undefined,
         };
         vscode.setState(st);
       } catch {}
@@ -839,9 +844,25 @@ export class TableEditProvider {
           if (typeof vs.scrollX === 'number') _container.scrollLeft = vs.scrollX;
           if (typeof vs.scrollY === 'number') _container.scrollTop = vs.scrollY;
         }
+        if (Array.isArray(vs.colWidths)) {
+          vs.colWidths.forEach((w, colIdx) => {
+            if (typeof w !== 'number') return;
+            const th = thead.querySelector('th:nth-child(' + (colIdx + 1) + ')');
+            if (th) {
+              th.style.width = w + 'px';
+              th.style.minWidth = w + 'px';
+              th.style.maxWidth = w + 'px';
+            }
+            tbody.querySelectorAll('tr td:nth-child(' + (colIdx + 1) + ')').forEach(td => {
+              td.style.width = w + 'px';
+              td.style.minWidth = w + 'px';
+              td.style.maxWidth = w + 'px';
+            });
+          });
+        }
         if (typeof vs.selRow === 'number' && typeof vs.selCol === 'number') {
           const td = tbody.querySelector('td[data-row="' + vs.selRow + '"][data-col="' + vs.selCol + '"]');
-          if (td) selectCell(td);
+          if (td) selectCell(td, { skipFocus: true });
         }
       } catch {}
     }
@@ -1279,6 +1300,7 @@ export class TableEditProvider {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       resizing = null;
+      _saveViewState();
     });
 
     // ── Search ─────────────────────────────────────────────────
