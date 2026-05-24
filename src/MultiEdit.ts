@@ -756,7 +756,10 @@ class MultiEditController extends TableEditProvider {
         _notifyHost('addLocale', { locale, fillDefaults: document.getElementById('_addLangFillDefaults').checked });
         okBtn.disabled = true;
       });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') okBtn.click(); if (e.key === 'Escape') close(); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.stopPropagation(); okBtn.click(); }
+        else if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      });
     }
 
     function _handleAddLocaleResult(msg) {
@@ -801,7 +804,10 @@ class MultiEditController extends TableEditProvider {
         _notifyHost('addKey', { name, insertAfterIndex: window.__insertAfterIndex });
         okBtn.disabled = true;
       });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') okBtn.click(); if (e.key === 'Escape') close(); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.stopPropagation(); okBtn.click(); }
+        else if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      });
     }
 
     function _handleAddKeyResult(msg) {

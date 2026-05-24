@@ -427,7 +427,10 @@ export class ResxEditController extends TableEditProvider {
         _notifyHost('addLocale', { locale, fillDefaults: document.getElementById('_addLangFillDefaults').checked });
         okBtn.disabled = true;
       });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') okBtn.click(); if (e.key === 'Escape') close(); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.stopPropagation(); okBtn.click(); }
+        else if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      });
     }
 
     function _handleAddLocaleResult(msg) {
@@ -472,7 +475,10 @@ export class ResxEditController extends TableEditProvider {
         _notifyHost('addKey', { name, addToAll: document.getElementById('_addKeyAddToAll').checked, insertAfterIndex: window.__insertAfterIndex });
         okBtn.disabled = true;
       });
-      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') okBtn.click(); if (e.key === 'Escape') close(); });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.stopPropagation(); okBtn.click(); }
+        else if (e.key === 'Escape') { e.stopPropagation(); close(); }
+      });
     }
 
     function _handleAddKeyResult(msg) {
@@ -508,6 +514,7 @@ export class ResxEditController extends TableEditProvider {
       document.getElementById('_deleteAllFiles').addEventListener('click', () => { _notifyHost('deleteKey', { name, allFiles: true }); close(); });
       document.getElementById('_deleteCancel').addEventListener('click', close);
       el.addEventListener('click', (e) => { if (e.target === el) close(); });
+      el.addEventListener('keydown', (e) => { e.stopPropagation(); });
     }
 
     // ── Action menu (dialogs triggered by host) ────────────────
