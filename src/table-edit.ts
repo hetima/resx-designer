@@ -343,7 +343,7 @@ export class TableEditProvider {
     .action-col .action-icon { opacity: 0.35; font-size: 16px; line-height: 1; }
     .action-col:hover .action-icon { opacity: 1; }
     .checkbox-col { text-align: center; padding: 0 2px; vertical-align: middle; }
-    .checkbox-col-header { text-align: center; padding: 0 2px; }
+    .checkbox-col-header { text-align: center; padding: 0 2px; vertical-align: middle;}
     .checkbox-col input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
     .checkbox-col-header input[type="checkbox"] { cursor: pointer; accent-color: var(--vscode-checkbox-background, var(--vscode-focusBorder)); width: 15px; height: 15px; margin: 0; }
     .name-col { }

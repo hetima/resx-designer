@@ -498,25 +498,25 @@ class MultiEditController extends TableEditProvider {
 
   private async syncPendingEditsFromWebview(): Promise<void> {
     const changes = await this.getChanges();
-    const { rows } = this.buildTableData();
+    const { rows, columns } = this.buildTableData();
 
     for (const c of changes) {
       if (c.kind !== 'cell') { continue; }
       if (c.row < 0 || c.row >= rows.length) { continue; }
 
       const rowName = rows[c.row].name;
-      const allCols = this.buildTableData().columns;
-      const col = c.col !== undefined ? allCols[c.col] : undefined;
-      if (!col) { continue; }
-
-      // Determine the field key
+      
+      // Determine the field key from the change object
       let fieldKey: string;
-      if (col.kind === 'name') {
+      
+      if ((c as any).field === 'name') {
         fieldKey = '__name__';
-      } else if (col.kind === 'comment') {
+      } else if ((c as any).field === 'comment') {
         fieldKey = '__comment__';
-      } else if (col.kind === 'locale') {
-        fieldKey = col.locale ?? '__null__';
+      } else if ((c as any).locale !== undefined) {
+        // Locale column edit
+        const locale = (c as any).locale;
+        fieldKey = locale === 'null' ? '__null__' : locale;
       } else {
         continue;
       }
@@ -524,7 +524,7 @@ class MultiEditController extends TableEditProvider {
       if (!this.pendingEdits.has(rowName)) {
         this.pendingEdits.set(rowName, new Map());
       }
-      this.pendingEdits.get(rowName)!.set(fieldKey, c.newValue);
+      this.pendingEdits.get(rowName)!.set(fieldKey, (c as any).newValue);
     }
   }
 
@@ -575,30 +575,50 @@ class MultiEditController extends TableEditProvider {
       if (this.pendingDeletes.has(rowName)) { continue; }
       if (this.pendingAdditions.some(a => a.name === rowName)) { continue; } // Already handled above
 
+      // First pass: update name and comment
+      const newName = changes.get('__name__');
+      const newComment = changes.get('__comment__');
+      
+      if (newName !== undefined) {
+        // Rename across all locales
+        for (const [, doc] of this.localeSet.locales) {
+          const entry = doc.entries.find(e => e.name === rowName);
+          if (entry) { entry.name = newName; }
+        }
+      }
+      
+      if (newComment !== undefined) {
+        // Update comment - only in default locale if it exists there, otherwise all locales
+        const defaultDoc = this.localeSet.locales.get(null);
+        if (defaultDoc) {
+          const defaultEntry = defaultDoc.entries.find(e => e.name === (newName ?? rowName));
+          if (defaultEntry) {
+            defaultEntry.comment = newComment;
+          }
+        }
+        // Also update in other locales if they have this entry
+        for (const [locale, doc] of this.localeSet.locales) {
+          if (locale === null) { continue; } // Already handled above
+          const entry = doc.entries.find(e => e.name === (newName ?? rowName));
+          if (entry) { entry.comment = newComment; }
+        }
+      }
+
+      // Second pass: update locale values
       for (const [fieldKey, newValue] of changes) {
-        if (fieldKey === '__name__') {
-          // Rename across all locales
-          for (const [, doc] of this.localeSet.locales) {
-            const entry = doc.entries.find(e => e.name === rowName);
-            if (entry) { entry.name = newValue; }
-          }
-        } else if (fieldKey === '__comment__') {
-          // Update comment across all locales
-          for (const [, doc] of this.localeSet.locales) {
-            const entry = doc.entries.find(e => e.name === rowName);
-            if (entry) { entry.comment = newValue; }
-          }
-        } else {
-          // Locale value update
-          const locale = fieldKey === '__null__' ? null : fieldKey;
-          const doc = this.localeSet.locales.get(locale);
-          if (doc) {
-            const entry = doc.entries.find(e => e.name === rowName);
-            if (entry) {
-              entry.value = newValue;
-            } else {
-              doc.entries.push({ name: rowName, value: newValue, comment: '' });
-            }
+        if (fieldKey === '__name__' || fieldKey === '__comment__') { continue; } // Already handled
+        
+        // Locale value update
+        const locale = fieldKey === '__null__' ? null : fieldKey;
+        const doc = this.localeSet.locales.get(locale);
+        if (doc) {
+          const entry = doc.entries.find(e => e.name === (newName ?? rowName));
+          if (entry) {
+            entry.value = newValue;
+          } else {
+            // Create new entry if it doesn't exist
+            const comment = newComment ?? '';
+            doc.entries.push({ name: (newName ?? rowName), value: newValue, comment });
           }
         }
       }
