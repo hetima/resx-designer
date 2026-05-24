@@ -178,21 +178,29 @@ export class ResxEditController extends TableEditProvider {
     const currentLocale = parseResxFilename(path.basename(this.document.uri.fsPath)).locale ?? null;
     const sortedLocales = getSortedLocales(this.localeSet, currentLocale);
 
-    // Build columns: [index], action, name, comment, then each locale
+    // Build columns: [index], action, name, locales..., (default), comment
     this.columns = [];
     if (showSerialIndex) {
       this.columns.push({ kind: 'index', locale: null, label: '#' });
     }
     this.columns.push({ kind: 'action', locale: null, label: '' });
     this.columns.push({ kind: 'name', locale: null, label: 'Name' });
-    this.columns.push({ kind: 'comment', locale: null, label: 'Comment' });
-    for (const loc of sortedLocales) {
-      this.columns.push({
-        kind: 'locale',
-        locale: loc,
-        label: loc ?? '(default)',
-      });
+    if (currentLocale === null) {
+      // Default file: show only default locale
+      this.columns.push({ kind: 'locale', locale: null, label: '(default)' });
+    } else {
+      // Locale file: non-default locales first, then default
+      for (const loc of sortedLocales) {
+        if (loc !== null) {
+          this.columns.push({ kind: 'locale', locale: loc, label: loc });
+        }
+      }
+      const hasDefault = this.localeSet!.locales.has(null);
+      if (hasDefault) {
+        this.columns.push({ kind: 'locale', locale: null, label: '(default)' });
+      }
     }
+    this.columns.push({ kind: 'comment', locale: null, label: 'Comment' });
 
     // Build the merged grid of rows.
     const nameOrder: string[] = [];
