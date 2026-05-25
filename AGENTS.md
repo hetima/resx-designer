@@ -28,29 +28,28 @@ Before making changes, agents should always review:
 - `package.json`: Activation events, commands, settings, and scripts.
 
 ## Build, Test, and Development Commands
-- `npm install`: Install dependencies.
-- `npm ci`: Clean, reproducible install (preferred in CI/local verification).
-- `npm run compile`: TypeScript → `out/` via `tsc`.
-- `npm run build:webview`: esbuild bundles `src/webview/index.js` → `media/main.js` (minified + sourcemap).
-- `npm run watch:webview`: esbuild watch mode for webview source (auto-rebuild on change).
-- `npm run lint`: ESLint over `**/*.ts` using `eslint.config.mjs`.
-- `npm test`: Compile, then run Node's test runner on `out/test`.
-- `npm run package`: Create a `.vsix` using `vsce` (publish/build).
+- `pnpm install`: Install dependencies.
+- `pnpm ci`: Clean, reproducible install (preferred in CI/local verification).
+- `pnpm run compile`: TypeScript → `out/` via `tsc`.
+- `pnpm run build:webview`: esbuild bundles `src/webview/index.js` → `media/main.js` (minified + sourcemap).
+- `pnpm run watch:webview`: esbuild watch mode for webview source (auto-rebuild on change).
+- `pnpm run lint`: ESLint over `**/*.ts` using `eslint.config.mjs`.
+- `pnpm test`: Compile, then run Node's test runner on `out/test`.
+- `pnpm run package`: Create a `.vsix` using `vsce` (publish/build).
 
 ## Toolchain
 - Use a modern Node runtime (recommended: Node 20 LTS).
-- Prefer `npm ci` over `npm install` for deterministic dependency resolution.
+- Prefer `pnpm ci` over `pnpm install` for deterministic dependency resolution.
 
 ## Mandatory Verification
-- After any code change, run `npm run compile` before sending the final response.
+- After any code change, run `pnpm run compile` before sending the final response.
 - Skip this only for docs-only changes or when the user explicitly asks to skip compile.
-- When editing webview source (`src/webview/*.js`), also run `npm run build:webview` to rebuild `media/main.js`.
-- Run `npm test` when behavior changes.
+- When editing webview source (`src/webview/*.js`), also run `pnpm run build:webview` to rebuild `media/main.js`.
+- Run `pnpm test` when behavior changes.
 
 ## Dependency Policy
 - Keep `package-lock.json` tracked in git.
 - No XML parsing library needed (lightweight regex-based parser).
-- `font-list` is a runtime dependency for the font-family picker command.
 
 ## User-Facing Change Sync
 - When adding/changing commands or settings, update both `package.json` contributions and `README.md`.

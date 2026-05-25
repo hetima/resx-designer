@@ -191,25 +191,23 @@
     "compile": "tsc -p ./",
     "lint": "eslint '**/*.ts'",
     "package": "vsce package",
-    "test": "npm run compile && node --test out/test",
-    "vscode:prepublish": "npm run compile",
-    "build:all": "npm run compile",
-    "install": "code --install-extension $npm_package_name-$npm_package_version.vsix --force",
-    "install:win": "code --install-extension %npm_package_name%-%npm_package_version%.vsix --force",
-    "deploy": "npm run package && npm run install",
-    "deploy:win": "npm run package && npm run install:win"
+    "test": "pnpm compile && node --test out/test",
+    "vscode:prepublish": "pnpm compile",
+    "build:all": "pnpm compile",
+    "install_package": "code --install-extension $npm_package_name-$npm_package_version.vsix --force",
+    "install_package:win": "code --install-extension %npm_package_name%-%npm_package_version%.vsix --force",
+    "deploy": "npm run package && npm run install_package",
+    "deploy:win": "pnpm package && pnpm run install_package:win"
   },
   "dependencies": {
-    "font-list": "^1.5.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.19",
-    "@types/vscode": "^1.70.0",
-    "@typescript-eslint/eslint-plugin": "^7.9.0",
-    "@typescript-eslint/parser": "^7.9.0",
+    "@types/node": "^20.19.41",
+    "@types/vscode": "^1.120.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "@vscode/vsce": "^3.9.1",
-    "eslint": "^8.57.0",
-    "typescript": "^4.4.3",
-    "vscode": "^1.1.37"
+    "eslint": "^10.4.0",
+    "typescript": "^4.9.5"
   }
 }
