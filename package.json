@@ -46,10 +46,6 @@
         "title": "RESX: Toggle Extension On/Off"
       },
       {
-        "command": "resx.changeFontFamily",
-        "title": "RESX: Change Font Family"
-      },
-      {
         "command": "resx.addLocale",
         "title": "RESX: Add New Locale"
       },

@@ -1,5 +1,4 @@
 import * as path from 'path';
-import { getFonts } from 'font-list';
 import * as vscode from 'vscode';
 import { ResxEditProvider } from './ResxEdit';
 import { parseResx } from './resx-parser';
@@ -50,46 +49,6 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("resx.toggleExtension", () =>
       toggleBooleanConfig("enabled", true, "RESX extension"),
     ),
-
-    // Change font family
-    vscode.commands.registerCommand("resx.changeFontFamily", async () => {
-      const resxCfg = vscode.workspace.getConfiguration("resx");
-      const editorCfg = vscode.workspace.getConfiguration("editor");
-      const currentResxFont = resxCfg.get<string>("fontFamily", "");
-      const inheritedFont = editorCfg.get<string>("fontFamily", "Menlo");
-      const currentEffective = currentResxFont || inheritedFont;
-
-      let fonts: string[] = [];
-      try {
-        fonts = (await getFonts())
-          .map((f: string) => f.replace(/^"(.*)"$/, "$1"))
-          .sort();
-      } catch (e) {
-        console.error("RESX: unable to enumerate system fonts", e);
-      }
-
-      const picks = ["(inherit editor setting)", ...fonts];
-      const choice = await vscode.window.showQuickPick(picks, {
-        placeHolder: `Current: ${currentEffective}`,
-      });
-      if (choice === undefined) {
-        return;
-      }
-
-      const newVal = choice === "(inherit editor setting)" ? "" : choice;
-      await resxCfg.update(
-        "fontFamily",
-        newVal,
-        vscode.ConfigurationTarget.Global,
-      );
-
-      vscode.window.showInformationMessage(
-        newVal
-          ? `RESX font set to "${newVal}".`
-          : "RESX font now inherits editor.fontFamily.",
-      );
-      ResxEditProvider.controllers.forEach((ed) => ed.refresh());
-    }),
 
     // Add a new locale
     vscode.commands.registerCommand("resx.addLocale", async () => {
