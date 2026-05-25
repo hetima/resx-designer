@@ -90,9 +90,12 @@ See full history in `CHANGELOG.md`.
 ## Development
 
 ```bash
-npm install
-npm run compile
-npm run package
+pnpm install
+pnpm run compile
+pnpm run package
+# install to local
+pnpm deploy # mac, linux
+pnpm deploy:win # windows
 ```
 
 ## Support This Project
