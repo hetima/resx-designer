@@ -22,6 +22,7 @@ export async function openSingleYamlEdit(
     const tmpUri = await createYamlTempFile(context, metadata, yaml);
     await vscode.commands.executeCommand('vscode.open', tmpUri, {
       viewColumn: vscode.ViewColumn.Active,
+      preserveFocus: true,
     });
   } catch (err) {
     vscode.window.showErrorMessage(`RESX: Failed to open YAML editor. ${err}`);
@@ -43,6 +44,7 @@ export async function openBulkYamlEdit(
     const tmpUri = await createYamlTempFile(context, metadata, yaml);
     await vscode.commands.executeCommand('vscode.open', tmpUri, {
       viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: true,
     });
   } catch (err) {
     vscode.window.showErrorMessage(`RESX: Failed to open bulk YAML editor for "${keyName}". ${err}`);
@@ -66,6 +68,7 @@ export async function openMultiYamlEdit(
     const tmpUri = await createYamlTempFile(context, metadata, yaml);
     await vscode.commands.executeCommand('vscode.open', tmpUri, {
       viewColumn: vscode.ViewColumn.Active,
+      preserveFocus: true,
     });
   } catch (err) {
     vscode.window.showErrorMessage(`RESX: Failed to open multi YAML editor. ${err}`);

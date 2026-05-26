@@ -857,7 +857,7 @@ export class ResxEditController extends TableEditProvider {
     try {
       const opts: any = {
         viewColumn: webviewPanel.viewColumn,
-        preserveFocus: !webviewPanel.active,
+        preserveFocus: true,
         preview: !!webviewPanel.active
       };
       await vscode.commands.executeCommand('vscode.openWith', this.document.uri, 'default', opts);
