@@ -57,7 +57,6 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 
 | Command | Description |
 |---|---|
-| `RESX: Toggle Extension On/Off` | Enable or disable the custom editor |
 | `RESX: Set as Default resx` | Set the default `Strings.resx` |
 | `RESX: Sort Default File Keys` | Sort all rows A–Z default file |
 | `RESX: Sort All File Keys` | Sort all rows A–Z across all locale files |
@@ -68,7 +67,7 @@ All settings are scoped to the `resx.*` prefix.
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `resx.enabled` | `boolean` | `true` | Enable/disable the custom editor |
+| `resx.editorType` | `string` | `"table"` | Editor mode: `"table"` (visual grid), `"plain-text"`, or `"yaml-like"` |
 | `resx.showSerialIndex` | `boolean` | `false` | Show index number column |
 | `resx.highlightMissingTranslations` | `boolean` | `true` | Highlight untranslated cells |
 | `resx.fontFamily` | `string` | *(inherit)* | Override font family |

@@ -42,10 +42,6 @@
     ],
     "commands": [
       {
-        "command": "resx.toggleExtension",
-        "title": "RESX: Toggle Extension On/Off"
-      },
-      {
         "command": "resx.addLocale",
         "title": "RESX: Add New Locale"
       },
@@ -78,10 +74,11 @@
       "type": "object",
       "title": "resx-designer",
       "properties": {
-        "resx.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable/Disable the RESX custom editor. Designer.cs autosave remains unaffected."
+        "resx.editorType": {
+          "type": "string",
+          "default": "table",
+          "enum": ["table", "plain-text", "yaml-like"],
+          "description": "Editor mode for .resx files. 'table' uses the visual grid editor. 'plain-text' and 'yaml-like' fall back to the default text editor."
         },
         "resx.fontFamily": {
           "type": "string",

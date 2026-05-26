@@ -32,24 +32,10 @@ async function clearAllExtensionState(context: vscode.ExtensionContext): Promise
   return removed;
 }
 
-async function toggleBooleanConfig(key: string, defaultVal: boolean, messagePrefix: string) {
-  const config = vscode.workspace.getConfiguration('resx');
-  const currentVal = config.get<boolean>(key, defaultVal);
-  const newVal = !currentVal;
-  await config.update(key, newVal, vscode.ConfigurationTarget.Global);
-  vscode.window.showInformationMessage(`${messagePrefix} ${newVal ? 'enabled' : 'disabled'}.`);
-  ResxEditProvider.controllers.forEach(ed => ed.refresh());
-}
-
 // ── Command Registration ─────────────────────────────────────────────
 
 export function registerResxCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(
-    // Toggle extension on/off
-    vscode.commands.registerCommand("resx.toggleExtension", () =>
-      toggleBooleanConfig("enabled", true, "RESX extension"),
-    ),
-
     // Add a new locale
     vscode.commands.registerCommand("resx.addLocale", async () => {
       const active = ResxEditProvider.getActiveController();

@@ -57,9 +57,9 @@ export function activate(context: vscode.ExtensionContext) {
   ];
 
   const cfgListener = vscode.workspace.onDidChangeConfiguration(e => {
-    if (e.affectsConfiguration('resx.enabled')) {
-      const enabled = vscode.workspace.getConfiguration('resx').get<boolean>('enabled', true);
-      if (enabled) {
+    if (e.affectsConfiguration('resx.editorType')) {
+      const editorType = vscode.workspace.getConfiguration('resx').get<string>('editorType', 'table');
+      if (editorType === 'table') {
         // Reopen any open .resx files with our editor
         const groups = vscode.window.tabGroups.all;
         const candidates: Array<{

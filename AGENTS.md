@@ -12,7 +12,7 @@ Before making changes, agents should always review:
 - `src/resx-writer.ts`: RESX XML serializer (`.resx` schema-compliant output).
 - `src/resx-locale-finder.ts`: Discovers related locale files (e.g. `Resources.ja.resx`, `Resources.fr.resx`).
 - `src/resx-config.ts`: Shared helpers for `resx.defaultResx` setting — `normalizeDefaultResxList()` and `isDefaultResx()`. The setting accepts `string | string[]` and falls back to `Strings.resx` when unconfigured.
-- `src/commands.ts`: Command registrations (`resx.toggleExtension`, `resx.addLocale`, etc.).
+- `src/commands.ts`: Command registrations (`resx.addLocale`, `resx.sortByName`, etc.).
 - `src/types/resx.d.ts`: Type definitions for RESX data model and webview messages.
 - `src/webview/index.js`: Webview entry point — initializes theme, state persistence, toolbar, and host message handler.
 - `src/webview/shared.js`: Shared dependencies for webview modules — vscode API, DOM refs, config constants, cell helpers.
@@ -63,4 +63,4 @@ Before making changes, agents should always review:
 ## Security & Configuration
 - Webview: escape all user data before injecting HTML; avoid `eval`/inline scripts.
 - `media/main.js` is a generated artifact — always edit `src/webview/*.js` and rebuild.
-- Settings: use `resx.*` keys declared in `package.json` and respect `resx.enabled`.
+- Settings: use `resx.*` keys declared in `package.json` and respect `resx.editorType`.

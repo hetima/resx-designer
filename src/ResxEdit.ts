@@ -56,7 +56,7 @@ export class ResxEditController extends TableEditProvider {
     }
 
     const config = vscode.workspace.getConfiguration('resx', this.document.uri);
-    if (!config.get<boolean>('enabled', true)) {
+    if (config.get<string>('editorType', 'table') !== 'table') {
       await this.openWithDefaultEditorAndClose(webviewPanel);
       return;
     }
