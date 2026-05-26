@@ -333,6 +333,26 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
       await openMultiYamlEdit(context, targetUri);
     }),
 
+    vscode.commands.registerCommand('resx.setEditorType', async () => {
+      const config = vscode.workspace.getConfiguration('resx');
+      const current = config.get<string>('editorType', 'table');
+      const defs: Array<{ label: string; description: string }> = [
+        { label: 'table', description: 'Visual grid editor' },
+        { label: 'yaml-like', description: 'YAML-like text editor' },
+        { label: 'plain-text', description: 'Default text editor (XML)' },
+      ];
+      const items = [
+        ...defs.filter(i => i.label === current).map(i => ({ ...i, description: i.description + ' (current)' })),
+        ...defs.filter(i => i.label !== current),
+      ];
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select editor type for .resx files',
+      });
+      if (!picked) { return; }
+      await config.update('editorType', picked.label, vscode.ConfigurationTarget.Global);
+      vscode.window.showInformationMessage(`RESX: Editor type set to "${picked.label}".`);
+    }),
+
     vscode.commands.registerCommand('resx.openBulkYamlEditFromYaml', async () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor || !editor.document.uri.fsPath.endsWith('.resxyaml')) {

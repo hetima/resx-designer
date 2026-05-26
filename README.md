@@ -57,9 +57,13 @@ Open the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and search for:
 
 | Command | Description |
 |---|---|
+| `RESX: Set Editor Type` | Switch editor mode (table / yaml-like / plain-text) |
 | `RESX: Set as Default resx` | Set the default `Strings.resx` |
 | `RESX: Sort Default File Keys` | Sort all rows A–Z default file |
 | `RESX: Sort All File Keys` | Sort all rows A–Z across all locale files |
+| `RESX: Open as YAML (single file)` | Open current `.resx` as YAML in text editor |
+| `RESX: Open as YAML (bulk – all locales, current key)` | Open all locale values for the selected key as YAML |
+| `RESX: Open as YAML (multi – all keys)` | Open all keys across all locales as YAML |
 
 ## Settings
 

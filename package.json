@@ -85,6 +85,10 @@
         "title": "RESX: Set as Default resx"
       },
       {
+        "command": "resx.setEditorType",
+        "title": "RESX: Set Editor Type"
+      },
+      {
         "command": "resx.openYamlEdit",
         "title": "RESX: Open as YAML (single file)"
       },
