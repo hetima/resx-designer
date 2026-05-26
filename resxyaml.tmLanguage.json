@@ -1,0 +1,73 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "RESX YAML",
+  "scopeName": "source.resxyaml",
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#top_key_inline" },
+    { "include": "#top_key" },
+    { "include": "#field" }
+  ],
+  "repository": {
+    "comment": {
+      "name": "comment.line.number-sign.resxyaml",
+      "match": "^\\s*#.*$"
+    },
+    "top_key_inline": {
+      "comment": "Flat form: KeyName: value",
+      "match": "^([^\\s#\"'][^:]*|\"(?:[^\"]|\\\\.)*\")\\s*(:)\\s*(.+?)\\s*$",
+      "captures": {
+        "1": { "name": "entity.name.tag.resxyaml" },
+        "2": { "name": "punctuation.separator.key-value.resxyaml" },
+        "3": { "patterns": [{ "include": "#quoted_string" }, { "include": "#unquoted_value" }] }
+      }
+    },
+    "top_key": {
+      "comment": "Top-level resource key: KeyName:",
+      "begin": "^([^\\s#\"'][^:]*|\"(?:[^\"]|\\\\.)*\")\\s*(:)\\s*$",
+      "end": "(?=^[^\\s#])",
+      "beginCaptures": {
+        "1": { "name": "entity.name.tag.resxyaml" },
+        "2": { "name": "punctuation.separator.key-value.resxyaml" }
+      },
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#field" },
+        { "include": "#locale_field" }
+      ]
+    },
+    "field": {
+      "comment": "Indented value or comment field",
+      "match": "^(\\s+)(value|comment)(\\s*:\\s*)(.*?)\\s*$",
+      "captures": {
+        "2": { "name": "keyword.other.resxyaml" },
+        "3": { "name": "punctuation.separator.key-value.resxyaml" },
+        "4": { "patterns": [{ "include": "#quoted_string" }, { "include": "#unquoted_value" }] }
+      }
+    },
+    "locale_field": {
+      "comment": "Indented locale field: ja, en-US, default, etc.",
+      "match": "^(\\s+)([a-zA-Z][a-zA-Z0-9\\-]*)(\\s*:\\s*)(.*?)\\s*$",
+      "captures": {
+        "2": { "name": "variable.other.locale.resxyaml" },
+        "3": { "name": "punctuation.separator.key-value.resxyaml" },
+        "4": { "patterns": [{ "include": "#quoted_string" }, { "include": "#unquoted_value" }] }
+      }
+    },
+    "unquoted_value": {
+      "name": "string.unquoted.resxyaml",
+      "match": ".+"
+    },
+    "quoted_string": {
+      "name": "string.quoted.double.resxyaml",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.resxyaml",
+          "match": "\\\\[\\\\\"nrt]"
+        }
+      ]
+    }
+  }
+}

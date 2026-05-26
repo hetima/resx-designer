@@ -31,6 +31,16 @@
         ],
         "firstLine": "^\\s*<\\?xml\\b",
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "resxyaml",
+        "extensions": [
+          ".resxyaml"
+        ],
+        "aliases": [
+          "RESX YAML",
+          "resxyaml"
+        ]
       }
     ],
     "grammars": [
@@ -38,6 +48,11 @@
         "language": "resx",
         "scopeName": "text.xml",
         "path": "./xml.tmLanguage.json"
+      },
+      {
+        "language": "resxyaml",
+        "scopeName": "source.resxyaml",
+        "path": "./resxyaml.tmLanguage.json"
       }
     ],
     "commands": [
@@ -68,6 +83,27 @@
       {
         "command": "resx.setDefaultResx",
         "title": "RESX: Set as Default resx"
+      },
+      {
+        "command": "resx.openYamlEdit",
+        "title": "RESX: Open as YAML (single file)"
+      },
+      {
+        "command": "resx.openBulkYamlEdit",
+        "title": "RESX: Open as YAML (bulk – all locales, current key)"
+      },
+      {
+        "command": "resx.openMultiYamlEdit",
+        "title": "RESX: Open as YAML (multi – all keys)"
+      },
+      {
+        "command": "resx.openAsText",
+        "title": "RESX: Open as Text",
+        "icon": "$(file-text)"
+      },
+      {
+        "command": "resx.openBulkYamlEditFromYaml",
+        "title": "RESX: Open Bulk Edit for This Key"
       }
     ],
     "configuration": {
@@ -173,6 +209,25 @@
           "command": "resx.setDefaultResx",
           "when": "resourceLangId == resx",
           "group": "9_resx@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "resx.openAsText",
+          "when": "resourceLangId == resx && activeCustomEditorId == 'resx.editor'",
+          "group": "navigation"
+        },
+        {
+          "command": "resx.openAsText",
+          "when": "resourceLangId == resxyaml",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "resx.openBulkYamlEditFromYaml",
+          "when": "resourceLangId == resxyaml",
+          "group": "navigation"
         }
       ],
       "editor/title/context": [

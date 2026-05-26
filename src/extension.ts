@@ -8,6 +8,21 @@ import type { MultiEditTempFileMetadata } from './types/resx';
 import { registerResxCommands } from './commands';
 import { parseResx } from './resx-parser';
 import { isDefaultResx } from './resx-config';
+import {
+  scanAllYamlTempFiles,
+  deleteYamlTempFile,
+  readYamlTempMetadata,
+  markYamlTempClosed,
+  buildSingleYaml,
+  buildBulkYaml,
+  buildMultiYaml,
+  yamlToSingleResx,
+  yamlToBulkResx,
+  yamlToMultiResx,
+  countYamlEntries,
+} from './resx-yaml';
+import { serializeResx } from './resx-writer';
+import { findRelatedResxFiles } from './resx-locale-finder';
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('RESX: Extension activated');
@@ -47,6 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Clean up temp files: delete closed ones, auto-restore unclosed (crash recovery)
   cleanBulkEditTempFiles(context);
   cleanMultiEditTempFiles(context);
+  cleanYamlTempFiles(context);
 
   // Auto-refresh all open RESX editors when relevant settings change
   const refreshKeys = [
@@ -117,6 +133,20 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(cfgListener);
 
+  // ── YAML temp file: save hook ────────────────────────────────────
+  const yamlSaveSub = vscode.workspace.onDidSaveTextDocument(async (doc) => {
+    if (!doc.uri.fsPath.endsWith('.resxyaml')) { return; }
+    await handleYamlTempSave(doc.uri, doc.getText());
+  });
+  context.subscriptions.push(yamlSaveSub);
+
+  // ── YAML temp file: close hook ───────────────────────────────────
+  const yamlCloseSub = vscode.workspace.onDidCloseTextDocument(async (doc) => {
+    if (!doc.uri.fsPath.endsWith('.resxyaml')) { return; }
+    await markYamlTempClosed(doc.uri);
+  });
+  context.subscriptions.push(yamlCloseSub);
+
   // ── Auto-generate Designer.cs on .resx change ────────────────────
   // FileSystemWatcher catches both VS Code saves and external edits (CLI-AI, etc.)
   if (vscode.workspace.workspaceFolders) {
@@ -125,6 +155,7 @@ export function activate(context: vscode.ExtensionContext) {
       const watcher = vscode.workspace.createFileSystemWatcher(pattern);
       watcher.onDidChange(async (uri) => {
         await tryRegenerateDesignerCs(uri, extensionVersion);
+        await tryRefreshYamlTempFile(context, uri);
       });
       context.subscriptions.push(watcher);
     }
@@ -178,7 +209,7 @@ async function regenerateDesignerCs(
     try {
       const existingBytes = await vscode.workspace.fs.readFile(outputUri);
       const text = new TextDecoder('utf-8').decode(existingBytes);
-      existingNames = [...text.matchAll(/internal\s+static\s+string\s+(\w+)/g)].map(m => m[1]).sort();
+      existingNames = [...text.matchAll(/public\s+static\s+string\s+(\w+)/g)].map(m => m[1]).sort();
       const nsMatch = text.match(/^namespace\s+([\S]+)/m);
       if (nsMatch) { existingRootNs = nsMatch[1]; }
       const rmMatch = text.match(/new\s+global::System\.Resources\.ResourceManager\("([^"]+)"/);
@@ -404,6 +435,97 @@ async function cleanMultiEditTempFiles(context: vscode.ExtensionContext): Promis
     } catch {
       // could not restore — leave for next startup
     }
+  }
+}
+
+// ── YAML Temp File Cleanup ────────────────────────────────────────────
+
+async function cleanYamlTempFiles(context: vscode.ExtensionContext): Promise<void> {
+  const all = await scanAllYamlTempFiles(context);
+  for (const { uri, metadata } of all) {
+    if (metadata.closed) {
+      await deleteYamlTempFile(uri);
+    } else {
+      // Auto-restore unclosed (crash recovery)
+      try {
+        await vscode.commands.executeCommand('vscode.open', uri);
+      } catch { /* ignore */ }
+    }
+  }
+}
+
+// ── YAML Temp File Refresh (on source .resx external change) ─────────
+
+async function tryRefreshYamlTempFile(context: vscode.ExtensionContext, changedUri: vscode.Uri): Promise<void> {
+  const all = await scanAllYamlTempFiles(context);
+  for (const { uri, metadata } of all) {
+    if (metadata.sourceUri !== changedUri.toString()) { continue; }
+
+    // Skip if the .resxyaml is open and dirty
+    const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
+    if (openDoc?.isDirty) { continue; }
+
+    try {
+      const sourceUri = vscode.Uri.parse(metadata.sourceUri);
+      let newContent: string;
+      if (metadata.mode === 'single') {
+        const { yaml } = await buildSingleYaml(sourceUri);
+        newContent = yaml;
+      } else if (metadata.mode === 'bulk' && metadata.keyName) {
+        const { yaml } = await buildBulkYaml(sourceUri, metadata.keyName);
+        newContent = yaml;
+      } else if (metadata.mode === 'multi') {
+        const { yaml } = await buildMultiYaml(sourceUri);
+        newContent = yaml;
+      } else {
+        continue;
+      }
+      await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(newContent));
+    } catch { /* ignore */ }
+  }
+}
+
+// ── YAML Save Handler ─────────────────────────────────────────────────
+
+async function handleYamlTempSave(tmpUri: vscode.Uri, yamlText: string): Promise<void> {
+  const metadata = await readYamlTempMetadata(tmpUri);
+  if (!metadata) { return; }
+
+  const sourceUri = vscode.Uri.parse(metadata.sourceUri);
+
+  if (countYamlEntries(yamlText) === 0) {
+    vscode.window.showWarningMessage('RESX: YAML has no entries. Save aborted.');
+    return;
+  }
+
+  try {
+    if (metadata.mode === 'single') {
+      const { doc } = await buildSingleYaml(sourceUri);
+      const updated = yamlToSingleResx(yamlText, doc);
+      const xml = serializeResx(updated);
+      await vscode.workspace.fs.writeFile(sourceUri, new TextEncoder().encode(xml));
+      vscode.window.showInformationMessage(`RESX: Saved to ${path.basename(sourceUri.fsPath)}`);
+
+    } else if (metadata.mode === 'bulk' && metadata.keyName) {
+      const { localeSet } = await buildBulkYaml(sourceUri, metadata.keyName);
+      yamlToBulkResx(yamlText, localeSet, metadata.keyName);
+      for (const [, doc] of localeSet.locales) {
+        const xml = serializeResx(doc);
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(doc.path), new TextEncoder().encode(xml));
+      }
+      vscode.window.showInformationMessage(`RESX: Saved "${metadata.keyName}" to all locale files.`);
+
+    } else if (metadata.mode === 'multi') {
+      const { localeSet } = await buildMultiYaml(sourceUri);
+      yamlToMultiResx(yamlText, localeSet);
+      for (const [, doc] of localeSet.locales) {
+        const xml = serializeResx(doc);
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(doc.path), new TextEncoder().encode(xml));
+      }
+      vscode.window.showInformationMessage(`RESX: Saved all keys to locale files.`);
+    }
+  } catch (err) {
+    vscode.window.showErrorMessage(`RESX: Failed to save YAML changes. ${err}`);
   }
 }
 

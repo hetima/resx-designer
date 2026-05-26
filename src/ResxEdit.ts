@@ -10,6 +10,7 @@ import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, getSortedLocales, parseResxFilename } from './resx-locale-finder';
 import { openBulkEditPanel } from './bulk-edit-panel';
 import { openMultiEditPanel } from './multi-edit-panel';
+import { openSingleYamlEdit } from './yaml-edit-panel';
 import { getThemeCssVariables } from './theme-colors';
 
 // ─────────────────────────────────────────────────────────────────────
@@ -56,7 +57,13 @@ export class ResxEditController extends TableEditProvider {
     }
 
     const config = vscode.workspace.getConfiguration('resx', this.document.uri);
-    if (config.get<string>('editorType', 'table') !== 'table') {
+    const editorType = config.get<string>('editorType', 'table');
+    if (editorType === 'yaml-like') {
+      await openSingleYamlEdit(this.context, document.uri);
+      try { webviewPanel.dispose(); } catch {}
+      return;
+    }
+    if (editorType !== 'table') {
       await this.openWithDefaultEditorAndClose(webviewPanel);
       return;
     }

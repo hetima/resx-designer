@@ -5,6 +5,8 @@ import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
 import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';
 import { normalizeDefaultResxList } from './resx-config';
+import { openSingleYamlEdit, openBulkYamlEdit, openMultiYamlEdit } from './yaml-edit-panel';
+import { readYamlTempMetadata } from './resx-yaml';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -296,6 +298,92 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         }
       },
     ),
+
+    vscode.commands.registerCommand('resx.openYamlEdit', async (uri?: vscode.Uri) => {
+      const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!targetUri || !targetUri.fsPath.toLowerCase().endsWith('.resx')) {
+        vscode.window.showInformationMessage('RESX: Open a .resx file first.');
+        return;
+      }
+      await openSingleYamlEdit(context, targetUri);
+    }),
+
+    vscode.commands.registerCommand('resx.openBulkYamlEdit', async (uri?: vscode.Uri) => {
+      const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!targetUri || !targetUri.fsPath.toLowerCase().endsWith('.resx')) {
+        vscode.window.showInformationMessage('RESX: Open a .resx file first.');
+        return;
+      }
+      const active = ResxEditProvider.getActiveController();
+      const cell = active?.getContextCell();
+      const keyName = cell?.name;
+      if (!keyName) {
+        vscode.window.showInformationMessage('RESX: Select a row in the RESX editor first.');
+        return;
+      }
+      await openBulkYamlEdit(context, targetUri, keyName);
+    }),
+
+    vscode.commands.registerCommand('resx.openMultiYamlEdit', async (uri?: vscode.Uri) => {
+      const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!targetUri || !targetUri.fsPath.toLowerCase().endsWith('.resx')) {
+        vscode.window.showInformationMessage('RESX: Open a .resx file first.');
+        return;
+      }
+      await openMultiYamlEdit(context, targetUri);
+    }),
+
+    vscode.commands.registerCommand('resx.openBulkYamlEditFromYaml', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor || !editor.document.uri.fsPath.endsWith('.resxyaml')) {
+        vscode.window.showInformationMessage('RESX: Open a .resxyaml file first.');
+        return;
+      }
+      const meta = await readYamlTempMetadata(editor.document.uri);
+      if (!meta?.sourceUri) {
+        vscode.window.showInformationMessage('RESX: Could not find source .resx file.');
+        return;
+      }
+      // Walk upward from cursor to find the top-level key
+      const doc = editor.document;
+      let keyName: string | undefined;
+      for (let i = editor.selection.active.line; i >= 0; i--) {
+        const line = doc.lineAt(i).text;
+        if (line === '' || line.trimStart().startsWith('#')) { continue; }
+        if (!line.startsWith(' ') && !line.startsWith('\t')) {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx > 0) { keyName = line.slice(0, colonIdx).trim().replace(/^"|"$/g, ''); }
+          break;
+        }
+      }
+      if (!keyName) {
+        vscode.window.showInformationMessage('RESX: Could not determine key at cursor position.');
+        return;
+      }
+      await openBulkYamlEdit(context, vscode.Uri.parse(meta.sourceUri), keyName);
+    }),
+
+    vscode.commands.registerCommand('resx.openAsText', async (uri?: vscode.Uri) => {
+      const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!targetUri) {
+        vscode.window.showInformationMessage('RESX: Open a .resx file first.');
+        return;
+      }
+      if (targetUri.fsPath.toLowerCase().endsWith('.resxyaml')) {
+        const meta = await readYamlTempMetadata(targetUri);
+        if (!meta?.sourceUri) {
+          vscode.window.showInformationMessage('RESX: Could not find source .resx file.');
+          return;
+        }
+        await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.parse(meta.sourceUri), 'default');
+        return;
+      }
+      if (!targetUri.fsPath.toLowerCase().endsWith('.resx')) {
+        vscode.window.showInformationMessage('RESX: Open a .resx file first.');
+        return;
+      }
+      await vscode.commands.executeCommand('vscode.openWith', targetUri, 'default');
+    }),
 
   );
 }
