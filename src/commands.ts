@@ -3,9 +3,10 @@ import * as vscode from 'vscode';
 import { ResxEditProvider } from './ResxEdit';
 import { parseResx } from './resx-parser';
 import { serializeResx } from './resx-writer';
-import { findRelatedResxFiles, parseResxFilename } from './resx-locale-finder';
+import { findRelatedResxFiles } from './resx-locale-finder';
 import { normalizeDefaultResxList } from './resx-config';
 import { openSingleYamlEdit, openBulkYamlEdit, openMultiYamlEdit } from './yaml-edit-panel';
+import { openBulkEditPanel } from './bulk-edit-panel';
 import { readYamlTempMetadata } from './resx-yaml';
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -381,6 +382,60 @@ export function registerResxCommands(context: vscode.ExtensionContext) {
         return;
       }
       await openBulkYamlEdit(context, vscode.Uri.parse(meta.sourceUri), keyName);
+    }),
+
+    vscode.commands.registerCommand('resx.createKeyFromSelection', async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) { return; }
+
+      // 選択テキストから [a-zA-Z0-9] のみ残してキー名を作る
+      const selected = editor.document.getText(editor.selection);
+      const keyName = selected.replace(/[^a-zA-Z0-9]/g, '');
+      if (!keyName) {
+        vscode.window.showErrorMessage('RESX: Invalid Key Name.');
+        return;
+      }
+
+      // アクティブエディタのフォルダースコープで defaultResx を解決
+      const docUri = editor.document.uri;
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(docUri);
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage('RESX: No workspace folder open.');
+        return;
+      }
+      const config = vscode.workspace.getConfiguration('resx', docUri);
+      const defaultResxList = normalizeDefaultResxList(config.get<string | string[]>('defaultResx'));
+      if (defaultResxList.length === 0) {
+        vscode.window.showErrorMessage('RESX: resx.defaultResx is not configured.');
+        return;
+      }
+
+      // 複数設定の場合はQuickPickで選ばせる
+      let picked: string;
+      if (defaultResxList.length === 1) {
+        picked = defaultResxList[0];
+      } else {
+        const choice = await vscode.window.showQuickPick(defaultResxList, {
+          placeHolder: 'Select target .resx file',
+        });
+        if (!choice) { return; }
+        picked = choice;
+      }
+      const resxPath = path.join(workspaceFolder.uri.fsPath, picked);
+      const sourceUri = vscode.Uri.file(resxPath);
+      try {
+        await vscode.workspace.fs.stat(sourceUri);
+      } catch {
+        vscode.window.showErrorMessage(`RESX: Default resx file not found: ${picked}`);
+        return;
+      }
+
+      const editorType = config.get<string>('editorType', 'table');
+      if (editorType === 'table') {
+        await openBulkEditPanel(context, sourceUri, keyName);
+      } else {
+        await openBulkYamlEdit(context, sourceUri, keyName);
+      }
     }),
 
     vscode.commands.registerCommand('resx.openAsText', async (uri?: vscode.Uri) => {

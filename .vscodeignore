@@ -11,8 +11,10 @@ src/**
 メモ.md
 AGENTS.md
 REVIEW.md
+*.code-workspace
 images/screenshot01.jpg
 images/screenshot02.jpg
 images/screenshot03.jpg
 assets/*
 pnpm-lock.yaml
+

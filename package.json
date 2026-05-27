@@ -108,6 +108,10 @@
       {
         "command": "resx.openBulkYamlEditFromYaml",
         "title": "RESX: Open Bulk Edit for This Key"
+      },
+      {
+        "command": "resx.createKeyFromSelection",
+        "title": "RESX: Create Key from Selection"
       }
     ],
     "configuration": {
@@ -116,7 +120,7 @@
       "properties": {
         "resx.editorType": {
           "type": "string",
-          "default": "table",
+          "default": "yaml-like",
           "enum": ["table", "plain-text", "yaml-like"],
           "description": "Editor mode for .resx files. 'table' uses the visual grid editor. 'plain-text' and 'yaml-like' fall back to the default text editor."
         },
@@ -232,6 +236,11 @@
           "command": "resx.openBulkYamlEditFromYaml",
           "when": "resourceLangId == resxyaml",
           "group": "navigation"
+        },
+        {
+          "command": "resx.createKeyFromSelection",
+          "when": "editorHasSelection && (resourceLangId == csharp || resourceLangId == xml || resourceLangId == xaml)",
+          "group": "9_resx@1"
         }
       ],
       "editor/title/context": [
