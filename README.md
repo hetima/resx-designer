@@ -1,6 +1,6 @@
 # resx-designer
 
-Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in a unified grid view. 
+Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in a unified grid view or YAML-like editor. 
 
 ![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/assets/screenshot04.gif)
 
@@ -13,14 +13,20 @@ Designer.cs is synchronized automatically whenever you add or remove keys in `St
 
 **Regarding the namespace for newly created files**: If a Designer.cs file already exists, its current configuration will be reused. However, for a newly created file, the namespace is automatically generated from the workspace name and folder structure. In this case, please open the file and verify if it matches your project. You will need to check two places: the very top of the file and around line 20. Once you modify and save the file, the extension will read and preserve those custom values for subsequent updates.
 
+### YAML-like Editor
+
+Convert clunky XML-based .resx files into a clean, human-readable YAML-like format for effortless editing. Edits in a YAML-like format and automatically converts back to XML upon saving.
+
+### Spreadsheet-style Editor
+
+You can view and edit data in a graphical table format. However, it is not fully polished yet, using the YAML-Like Editor is recommended.
+
 ### Batch Edit Identical Names
 
 Provides a custom window to extract and edit a single name across all languages. No need to deal with a massive cell matrix. Click the ellipsis at the far left of the row and select "Bulk Edit".
 
-### All Keys across All Languages
-
-"But what if I still need a massive cell matrix ?"  
-Of course, we've got you covered. Select "Multi View" from the UI.
+### Instant Key Generation
+Create new keys directly from selected text in `.cs` or `.xaml` files, and immediately open the Bulk Edit interface for fast editing.
 
 ### Other Features
 
