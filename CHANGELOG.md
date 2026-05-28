@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+- Added Yaml Like Editor
+- Create or edit a RESX key from selected text in any C#/XAML file using Bulk Edit
+
 ## [0.2.1] - 2026-05-24
 - Added checkbox to Multi Edit for bulk deletion
 - Fixed cell width restoration issue on reload

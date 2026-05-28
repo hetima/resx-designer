@@ -69,14 +69,6 @@
         "title": "RESX: Sort Entries by Name"
       },
       {
-        "command": "resx.sortDefaultFileKeys",
-        "title": "RESX: Sort Default File Keys"
-      },
-      {
-        "command": "resx.sortAllFileKeys",
-        "title": "RESX: Sort All File Keys"
-      },
-      {
         "command": "resx.debugClearState",
         "title": "RESX: Debug Clear Workspace State"
       },
