@@ -4,6 +4,7 @@ Multi-language .NET resource (`.resx`) editor for VS Code. Edit locale files in 
 
 ![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/assets/screenshot04.gif)
 
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/assets/screen01.jpg)
 
 ## Features
 
@@ -20,6 +21,8 @@ Convert clunky XML-based .resx files into a clean, human-readable YAML-like form
 ### Spreadsheet-style Editor
 
 You can view and edit data in a graphical table format. However, it is not fully polished yet, using the YAML-Like Editor is recommended.
+
+The editor type can be changed through the extension settings or `RESX: Set Editor Type` command.
 
 ### Batch Edit Identical Names
 
@@ -48,7 +51,7 @@ Create new keys directly from selected text in `.cs` or `.xaml` files, and immed
 
 Open your workspace and set the default `Strings.resx` first. Right-click `Strings.resx` in the Explorer panel and run `RESX: Set as Default resx`. (Saved in `.vscode/settings.json`)
 
-![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/images/screenshot01.jpg)
+![Screenshot](https://raw.githubusercontent.com/hetima/resx-designer/main/assets/screen02.jpg)
 
 Note: Functions such as Designer.cs syncing depend on this default file. If left unconfigured, any file named `Strings.resx` in the workspace is automatically treated as the default fallback.  
 If there are multiple default .resx files (not necessarily named `Strings.resx`), you can specify them as an array in `.vscode/settings.json` in workspace:

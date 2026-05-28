@@ -1,7 +1,7 @@
 # Changelog
 
-## [Unreleased]
-- Added New Yaml Like Editor
+## [0.3.0] - 2026-05-28
+- Added New YAML-like Editor
 - Create or edit a RESX key from selected text in any C#/XAML file using Bulk Edit
 
 ## [0.2.1] - 2026-05-24
