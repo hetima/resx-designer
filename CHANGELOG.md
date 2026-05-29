@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.3.1] - 2026-05-30
 - Fixed path separator handling in default resx settings
 
 ## [0.3.0] - 2026-05-28
