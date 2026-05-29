@@ -1,5 +1,8 @@
 # Changelog
 
+## [unreleased]
+- Fixed path separator handling in default resx settings
+
 ## [0.3.0] - 2026-05-28
 - Added New YAML-like Editor
 - Create or edit a RESX key from selected text in any C#/XAML file using Bulk Edit

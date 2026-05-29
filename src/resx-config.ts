@@ -20,7 +20,8 @@ export function isDefaultResx(
   relativePath: string,
   config: vscode.WorkspaceConfiguration,
 ): boolean {
-  const list = normalizeDefaultResxList(config.get<string | string[]>('defaultResx'));
+  const list = normalizeDefaultResxList(config.get<string | string[]>('defaultResx'))
+    .map((p) => p.replace(/\\/g, '/'));
   if (list.some((p) => p === relativePath)) {
     return true;
   }
