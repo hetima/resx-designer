@@ -337,6 +337,7 @@ export class BulkEditProvider extends TableEditProvider implements vscode.Custom
 
     // Write to each locale file
     for (const [locale, value] of st.pendingEdits) {
+      if (value === '') { continue; }
       const doc = st.localeSet!.locales.get(locale);
       if (!doc) { continue; }
       const entry = doc.entries.find(e => e.name === document.metadata.keyName);

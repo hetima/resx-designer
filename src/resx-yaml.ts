@@ -165,17 +165,23 @@ export function yamlToSingleResx(yaml: string, existingDoc: ResxDocument): ResxD
 }
 
 /** YAML → bulk update: apply locale values for keyName across localeSet */
-export function yamlToBulkResx(yaml: string, localeSet: ResxLocaleSet, keyName: string): void {
+export function yamlToBulkResx(yaml: string, localeSet: ResxLocaleSet, keyName: string): ResxDocument[] {
   const parsed = parseYaml(yaml);
   const entry = parsed.find(e => e.name === keyName);
-  if (!entry) { return; }
+  if (!entry) { return []; }
 
+  const changedDocs: ResxDocument[] = [];
   for (const [loc, doc] of localeSet.locales) {
     const label = loc === null ? 'default' : loc;
     if (!entry.fields.has(label)) { continue; }
     const newValue = entry.fields.get(label)!;
+    if (newValue === '') { continue; }
     const existing = doc.entries.find(e => e.name === keyName);
     if (existing) {
+      const newComment = loc === null && entry.fields.has('comment')
+        ? entry.fields.get('comment')!
+        : existing.comment;
+      if (existing.value === newValue && existing.comment === newComment) { continue; }
       existing.value = newValue;
       if (loc === null && entry.fields.has('comment')) {
         existing.comment = entry.fields.get('comment')!;
@@ -187,7 +193,9 @@ export function yamlToBulkResx(yaml: string, localeSet: ResxLocaleSet, keyName: 
         comment: loc === null ? (entry.fields.get('comment') ?? '') : '',
       });
     }
+    changedDocs.push(doc);
   }
+  return changedDocs;
 }
 
 /** YAML → multi update: apply all keys across localeSet */

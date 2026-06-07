@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.3.2] - 2026-06-07
+- Fixed an issue where Bulk Edit would save empty values.
+
 ## [0.3.1] - 2026-05-30
 - Fixed path separator handling in default resx settings
 

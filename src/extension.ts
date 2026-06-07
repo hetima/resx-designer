@@ -508,8 +508,8 @@ async function handleYamlTempSave(tmpUri: vscode.Uri, yamlText: string): Promise
 
     } else if (metadata.mode === 'bulk' && metadata.keyName) {
       const { localeSet } = await buildBulkYaml(sourceUri, metadata.keyName);
-      yamlToBulkResx(yamlText, localeSet, metadata.keyName);
-      for (const [, doc] of localeSet.locales) {
+      const changedDocs = yamlToBulkResx(yamlText, localeSet, metadata.keyName);
+      for (const doc of changedDocs) {
         const xml = serializeResx(doc);
         await vscode.workspace.fs.writeFile(vscode.Uri.file(doc.path), new TextEncoder().encode(xml));
       }
